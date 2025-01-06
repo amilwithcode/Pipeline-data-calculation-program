@@ -1,8 +1,8 @@
-# Pipeline data calculation program
+## Pipeline data calculation program
 
 This is beta version an Azerbaijan company's program. This program is pipeline data caculation and to present a table.
 
-# 📒 Used tecnoligies
+## 📒 Used tecnologies
 
 ```
 *python
@@ -16,5 +16,5 @@ This is beta version an Azerbaijan company's program. This program is pipeline d
 *PyPDF2
 ```
 
-## Contact
+## 📧 Contact
 If you have any questions, feel free to contact me at mywithcontact@gmail.com.
