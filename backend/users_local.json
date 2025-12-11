@@ -1,0 +1,22 @@
+{
+    "users": [
+        {
+            "id": 1,
+            "email": "sdvahbfkjv@gmail.com",
+            "password_hash": "01073b8a906928deaabf7ed6fdd87aff5ca7ac31669dc255d702e2b3a9f77fc9",
+            "role": "supplier"
+        },
+        {
+            "id": 2,
+            "email": "sjkdcfsj@gmail.com",
+            "password_hash": "40df4c8561c0fefddb06d3b795bf1748ff467ed852c017861dd89619435678d2",
+            "role": "admin"
+        },
+        {
+            "id": 3,
+            "email": "fakaf22592@kudimi.com",
+            "password_hash": "a6e9d272d8ab917570ff90e76e837ffb3ffe73733af2f6dc529974dc771ddc67",
+            "role": "admin"
+        }
+    ]
+}
