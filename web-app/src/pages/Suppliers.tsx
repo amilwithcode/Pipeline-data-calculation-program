@@ -1,5 +1,5 @@
-import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { SupplierOverview } from '@/components/dashboard/SupplierOverview';
+import { DashboardLayout } from '@/src/components/layout/DashboardLayout';
+import { SupplierOverview } from '@/src/components/dashboard/SupplierOverview';
 
 const Suppliers = () => {
   return (

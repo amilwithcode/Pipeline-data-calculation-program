@@ -1,50 +1,16 @@
+import { useEffect, useState } from 'react';
 import { AlertTriangle, AlertCircle, Info, X, Clock } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { Button } from '@/src/components/ui/button';
+import { cn } from '@/src/lib/utils';
 
-interface Alert {
+type Alert = {
   id: string;
   type: 'critical' | 'warning' | 'info';
   title: string;
   message: string;
   time: string;
   source: string;
-}
-
-const alerts: Alert[] = [
-  {
-    id: '1',
-    type: 'critical',
-    title: 'Temperature Anomaly Detected',
-    message: 'Heat treatment furnace #3 exceeding safe temperature limits',
-    time: '2 min ago',
-    source: 'Production Line B'
-  },
-  {
-    id: '2',
-    type: 'warning',
-    title: 'Material Shortage Predicted',
-    message: 'Steel coil inventory projected to deplete in 48 hours',
-    time: '15 min ago',
-    source: 'Inventory System'
-  },
-  {
-    id: '3',
-    type: 'warning',
-    title: 'Supplier Delivery Delay',
-    message: 'Shipment from MetalCo delayed by 6 hours',
-    time: '1 hour ago',
-    source: 'Logistics'
-  },
-  {
-    id: '4',
-    type: 'info',
-    title: 'Maintenance Scheduled',
-    message: 'Routine maintenance for Pipe Former #2 at 18:00',
-    time: '2 hours ago',
-    source: 'Maintenance'
-  }
-];
+};
 
 const alertConfig = {
   critical: {
@@ -71,6 +37,46 @@ const alertConfig = {
 };
 
 export const AlertsPanel = () => {
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [dismissed, setDismissed] = useState<string[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    const stored = typeof window !== 'undefined' ? window.localStorage.getItem('dismissed_alerts') : null;
+    if (stored) {
+      try { setDismissed(JSON.parse(stored)); } catch {}
+    }
+    fetch('/api/alerts')
+      .then((r) => r.json())
+      .then((d) => {
+        if (!mounted) return;
+        const list: Alert[] = d.alerts || [];
+        setAlerts(list);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setAlerts([]);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  function handleDismiss(id: string) {
+    setAlerts((prev) => prev.filter((a) => a.id !== id));
+    setDismissed((prev) => {
+      const next = [...prev, id];
+      if (typeof window !== 'undefined') window.localStorage.setItem('dismissed_alerts', JSON.stringify(next));
+      return next;
+    });
+  }
+
+  function handleViewAll() {
+    if (typeof window !== 'undefined') {
+      window.location.href = '/?view=alerts';
+    }
+  }
+
   return (
     <div className="glass-card p-6">
       <div className="flex items-center justify-between mb-6">
@@ -81,16 +87,22 @@ export const AlertsPanel = () => {
         <div className="flex items-center gap-2">
           <span className="badge-status bg-destructive/10 text-destructive">
             <span className="w-2 h-2 rounded-full bg-destructive pulse-dot" />
-            1 Critical
+            {(() => {
+              const visible = alerts.filter(a => !dismissed.includes(a.id));
+              const crt = visible.filter(a => a.type === 'critical').length;
+              return `${crt} Critical`;
+            })()}
           </span>
-          <span className="badge-status bg-warning/10 text-warning">
-            2 Warnings
-          </span>
+          <span className="badge-status bg-warning/10 text-warning">{(() => {
+            const visible = alerts.filter(a => !dismissed.includes(a.id));
+            const wrn = visible.filter(a => a.type === 'warning').length;
+            return `${wrn} Warnings`;
+          })()}</span>
         </div>
       </div>
 
       <div className="space-y-3">
-        {alerts.map((alert) => {
+        {alerts.filter(a => !dismissed.includes(a.id)).map((alert) => {
           const config = alertConfig[alert.type];
           const Icon = config.icon;
           
@@ -126,7 +138,7 @@ export const AlertsPanel = () => {
                   </div>
                 </div>
 
-                <Button variant="ghost" size="icon" className="flex-shrink-0 h-6 w-6 text-muted-foreground hover:text-foreground">
+                <Button onClick={() => handleDismiss(alert.id)} variant="ghost" size="icon" className="flex-shrink-0 h-6 w-6 text-muted-foreground hover:text-foreground">
                   <X className="w-4 h-4" />
                 </Button>
               </div>
@@ -135,7 +147,7 @@ export const AlertsPanel = () => {
         })}
       </div>
 
-      <Button variant="ghost" className="w-full mt-4 text-muted-foreground hover:text-foreground">
+      <Button onClick={handleViewAll} variant="ghost" className="w-full mt-4 text-muted-foreground hover:text-foreground">
         View All Alerts
       </Button>
     </div>

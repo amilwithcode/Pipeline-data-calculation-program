@@ -1,5 +1,5 @@
 import { CheckCircle2, Circle, Clock, AlertCircle } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/src/lib/utils';
 
 interface PipelineStage {
   id: string;

@@ -1,12 +1,12 @@
-import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { StatCard } from '@/components/dashboard/StatCard';
-import { ProductionPipeline } from '@/components/dashboard/ProductionPipeline';
-import { QualityMetrics } from '@/components/dashboard/QualityMetrics';
-import { AlertsPanel } from '@/components/dashboard/AlertsPanel';
-import { SupplierOverview } from '@/components/dashboard/SupplierOverview';
-import { RiskIndicator } from '@/components/dashboard/RiskIndicator';
-import { ProductionChart } from '@/components/dashboard/ProductionChart';
-import { LogisticsTracker } from '@/components/dashboard/LogisticsTracker';
+import { DashboardLayout } from '@/src/components/layout/DashboardLayout';
+import { StatCard } from '@/src/components/dashboard/StatCard';
+import { ProductionPipeline } from '@/src/components/dashboard/ProductionPipeline';
+import { QualityMetrics } from '@/src/components/dashboard/QualityMetrics';
+import { AlertsPanel } from '@/src/components/dashboard/AlertsPanel';
+import { SupplierOverview } from '@/src/components/dashboard/SupplierOverview';
+import { RiskIndicator } from '@/src/components/dashboard/RiskIndicator';
+import { ProductionChart } from '@/src/components/dashboard/ProductionChart';
+import { LogisticsTracker } from '@/src/components/dashboard/LogisticsTracker';
 import { Factory, Package, Truck, AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
 
 const Index = () => {

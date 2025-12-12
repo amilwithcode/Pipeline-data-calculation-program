@@ -1,6 +1,6 @@
-import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { RiskIndicator } from '@/components/dashboard/RiskIndicator';
-import { ProductionChart } from '@/components/dashboard/ProductionChart';
+import { DashboardLayout } from '@/src/components/layout/DashboardLayout';
+import { RiskIndicator } from '@/src/components/dashboard/RiskIndicator';
+import { ProductionChart } from '@/src/components/dashboard/ProductionChart';
 
 const Performance = () => {
   return (

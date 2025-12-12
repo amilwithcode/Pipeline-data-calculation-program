@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { 
   LayoutDashboard, 
   Factory, 
@@ -13,23 +14,25 @@ import {
   Gauge,
   Package
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/src/lib/utils';
 
 const navigationItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
-  { icon: Factory, label: 'Production', path: '/production' },
-  { icon: Package, label: 'Raw Materials', path: '/materials' },
-  { icon: ClipboardCheck, label: 'Quality Control', path: '/quality' },
-  { icon: Truck, label: 'Logistics', path: '/logistics' },
-  { icon: Users, label: 'Suppliers', path: '/suppliers' },
-  { icon: AlertTriangle, label: 'Alerts', path: '/alerts' },
-  { icon: Gauge, label: 'Performance', path: '/performance' },
-  { icon: Settings, label: 'Settings', path: '/settings' },
-  { icon: Users, label: 'Admin', path: '/admin' },
+  { icon: LayoutDashboard, label: 'Dashboard', view: 'dashboard' },
+  { icon: Factory, label: 'Production', view: 'production' },
+  { icon: Package, label: 'Raw Materials', view: 'materials' },
+  { icon: ClipboardCheck, label: 'Quality Control', view: 'quality' },
+  { icon: Truck, label: 'Logistics', view: 'logistics' },
+  { icon: Users, label: 'Suppliers', view: 'suppliers' },
+  { icon: AlertTriangle, label: 'Alerts', view: 'alerts' },
+  { icon: Gauge, label: 'Performance', view: 'performance' },
+  { icon: Settings, label: 'Settings', view: 'settings' },
+  { icon: Users, label: 'Admin', view: 'admin' },
 ];
 
 export const Sidebar = () => {
   const [collapsed, setCollapsed] = useState(false);
+  const params = useSearchParams();
+  const currentView = (params && params.get('view')) || 'dashboard';
 
   return (
     <aside 
@@ -61,20 +64,18 @@ export const Sidebar = () => {
       {/* Navigation */}
       <nav className="flex-1 py-6 px-3 space-y-1 overflow-y-auto">
         {navigationItems.map((item) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            className={({ isActive }) =>
-              cn(
-                "sidebar-link",
-                isActive && "sidebar-link-active",
-                collapsed && "justify-center px-3"
-              )
-            }
+          <Link
+            key={item.view}
+            href={`/?view=${item.view}`}
+            className={cn(
+              "sidebar-link",
+              currentView === item.view && "sidebar-link-active",
+              collapsed && "justify-center px-3"
+            )}
           >
             <item.icon className="w-5 h-5 flex-shrink-0" />
             {!collapsed && <span className="font-medium">{item.label}</span>}
-          </NavLink>
+          </Link>
         ))}
       </nav>
 

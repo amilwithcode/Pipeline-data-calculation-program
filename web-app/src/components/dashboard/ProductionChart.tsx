@@ -1,8 +1,9 @@
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
-import { useState } from 'react';
-import { cn } from '@/lib/utils';
+import { useEffect, useState } from 'react';
+import { cn } from '@/src/lib/utils';
 
-const productionData = [
+type Point = { date: string; production: number; target: number; defects: number };
+const fallbackData: Point[] = [
   { date: 'Mon', production: 4200, target: 4500, defects: 12 },
   { date: 'Tue', production: 4800, target: 4500, defects: 8 },
   { date: 'Wed', production: 4650, target: 4500, defects: 15 },
@@ -14,6 +15,16 @@ const productionData = [
 
 export const ProductionChart = () => {
   const [activeChart, setActiveChart] = useState<'production' | 'defects'>('production');
+  const [data, setData] = useState<Point[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    fetch('/api/production')
+      .then(r => r.json())
+      .then(d => { if (!mounted) return; setData(Array.isArray(d.items) ? d.items : []); })
+      .catch(() => { if (!mounted) return; setData(fallbackData); });
+    return () => { mounted = false; };
+  }, []);
 
   return (
     <div className="glass-card p-6">
@@ -51,7 +62,7 @@ export const ProductionChart = () => {
       <div className="h-72">
         <ResponsiveContainer width="100%" height="100%">
           {activeChart === 'production' ? (
-            <AreaChart data={productionData}>
+            <AreaChart data={data.length ? data : fallbackData}>
               <defs>
                 <linearGradient id="productionGradient" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="hsl(210 70% 50%)" stopOpacity={0.3}/>
@@ -105,7 +116,7 @@ export const ProductionChart = () => {
               />
             </AreaChart>
           ) : (
-            <BarChart data={productionData}>
+            <BarChart data={data.length ? data : fallbackData}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 15% 22%)" vertical={false} />
               <XAxis 
                 dataKey="date" 

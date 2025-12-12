@@ -1,5 +1,5 @@
-import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { LogisticsTracker } from '@/components/dashboard/LogisticsTracker';
+import { DashboardLayout } from '@/src/components/layout/DashboardLayout';
+import { LogisticsTracker } from '@/src/components/dashboard/LogisticsTracker';
 
 const Logistics = () => {
   return (

@@ -1,5 +1,5 @@
-import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { AlertsPanel } from '@/components/dashboard/AlertsPanel';
+import { DashboardLayout } from '@/src/components/layout/DashboardLayout';
+import { AlertsPanel } from '@/src/components/dashboard/AlertsPanel';
 
 const Alerts = () => {
   return (

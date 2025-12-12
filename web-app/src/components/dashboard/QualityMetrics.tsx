@@ -1,4 +1,6 @@
-import { cn } from '@/lib/utils';
+import { useEffect, useState } from 'react';
+import { cn } from '@/src/lib/utils';
+import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card';
 
 interface QualityTest {
   id: string;
@@ -9,7 +11,7 @@ interface QualityTest {
   failed: number;
 }
 
-const qualityTests: QualityTest[] = [
+const fallbackTests: QualityTest[] = [
   { id: '1', name: 'Tensile Strength', passRate: 98.5, totalTests: 420, passed: 414, failed: 6 },
   { id: '2', name: 'Hydrostatic Pressure', passRate: 99.2, totalTests: 380, passed: 377, failed: 3 },
   { id: '3', name: 'Dimensional Accuracy', passRate: 97.8, totalTests: 450, passed: 440, failed: 10 },
@@ -18,8 +20,33 @@ const qualityTests: QualityTest[] = [
 ];
 
 export const QualityMetrics = () => {
+  const [tests, setTests] = useState<QualityTest[]>([]);
+  const [totals, setTotals] = useState<{ total: number; passed: number; failed: number } | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    fetch('/api/quality')
+      .then(r => r.json())
+      .then(d => {
+        if (!mounted) return;
+        setTests(Array.isArray(d.tests) ? d.tests : []);
+        setTotals(d.totals ?? null);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setTests(fallbackTests);
+        setTotals({
+          total: fallbackTests.reduce((a, t) => a + t.totalTests, 0),
+          passed: fallbackTests.reduce((a, t) => a + t.passed, 0),
+          failed: fallbackTests.reduce((a, t) => a + t.failed, 0),
+        });
+      });
+    return () => { mounted = false; };
+  }, []);
+
+  const list = tests.length ? tests : fallbackTests;
   const overallPassRate = (
-    qualityTests.reduce((acc, test) => acc + test.passRate, 0) / qualityTests.length
+    list.reduce((acc, test) => acc + test.passRate, 0) / list.length
   ).toFixed(1);
 
   return (
@@ -36,7 +63,7 @@ export const QualityMetrics = () => {
       </div>
 
       <div className="space-y-4">
-        {qualityTests.map((test) => (
+        {list.map((test) => (
           <div key={test.id} className="group">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-foreground">{test.name}</span>
@@ -69,18 +96,53 @@ export const QualityMetrics = () => {
 
       <div className="mt-6 pt-4 border-t border-border grid grid-cols-3 gap-4 text-center">
         <div>
-          <p className="text-2xl font-bold text-foreground font-mono">1,950</p>
+          <p className="text-2xl font-bold text-foreground font-mono">{totals?.total ?? list.reduce((a, t) => a + t.totalTests, 0)}</p>
           <p className="text-xs text-muted-foreground">Total Tests</p>
         </div>
         <div>
-          <p className="text-2xl font-bold text-success font-mono">1,916</p>
+          <p className="text-2xl font-bold text-success font-mono">{totals?.passed ?? list.reduce((a, t) => a + t.passed, 0)}</p>
           <p className="text-xs text-muted-foreground">Passed</p>
         </div>
         <div>
-          <p className="text-2xl font-bold text-destructive font-mono">34</p>
+          <p className="text-2xl font-bold text-destructive font-mono">{totals?.failed ?? list.reduce((a, t) => a + t.failed, 0)}</p>
           <p className="text-xs text-muted-foreground">Failed</p>
         </div>
       </div>
+
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle>Quality Test Results</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-secondary">
+                <tr>
+                  <th className="p-2 text-left">Test</th>
+                  <th className="p-2 text-left">Pass Rate</th>
+                  <th className="p-2 text-left">Total</th>
+                  <th className="p-2 text-left">Passed</th>
+                  <th className="p-2 text-left">Failed</th>
+                </tr>
+              </thead>
+              <tbody>
+                {list.map((t) => (
+                  <tr key={t.id} className="border-t border-border">
+                    <td className="p-2">{t.name}</td>
+                    <td className={cn("p-2 font-mono", t.passRate >= 98 ? "text-success" : t.passRate >= 95 ? "text-warning" : "text-destructive")}>{t.passRate}%</td>
+                    <td className="p-2">{t.totalTests}</td>
+                    <td className="p-2">{t.passed}</td>
+                    <td className="p-2">{t.failed}</td>
+                  </tr>
+                ))}
+                {!list.length && (
+                  <tr className="border-t border-border"><td className="p-2" colSpan={5}>No results</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

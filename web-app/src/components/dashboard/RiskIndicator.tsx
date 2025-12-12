@@ -1,5 +1,6 @@
+import { useEffect, useState } from 'react';
 import { Shield, AlertTriangle, TrendingDown, Activity } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/src/lib/utils';
 
 interface RiskMetric {
   id: string;
@@ -9,32 +10,32 @@ interface RiskMetric {
   factors: string[];
 }
 
-const riskMetrics: RiskMetric[] = [
-  { 
-    id: '1', 
-    name: 'Supply Chain Risk', 
-    score: 28, 
+const fallbackMetrics: RiskMetric[] = [
+  {
+    id: '1',
+    name: 'Supply Chain Risk',
+    score: 28,
     trend: 'improving',
     factors: ['Supplier diversity', 'Lead time variability']
   },
-  { 
-    id: '2', 
-    name: 'Quality Risk', 
-    score: 15, 
+  {
+    id: '2',
+    name: 'Quality Risk',
+    score: 15,
     trend: 'stable',
     factors: ['Defect rate', 'Process capability']
   },
-  { 
-    id: '3', 
-    name: 'Delivery Risk', 
-    score: 42, 
+  {
+    id: '3',
+    name: 'Delivery Risk',
+    score: 42,
     trend: 'worsening',
     factors: ['Transit delays', 'Capacity constraints']
   },
-  { 
-    id: '4', 
-    name: 'Production Risk', 
-    score: 22, 
+  {
+    id: '4',
+    name: 'Production Risk',
+    score: 22,
     trend: 'improving',
     factors: ['Equipment reliability', 'Workforce availability']
   },
@@ -46,12 +47,37 @@ const getRiskLevel = (score: number) => {
   return { label: 'High', color: 'text-destructive', bgColor: 'bg-destructive', gradient: 'from-destructive to-destructive/50' };
 };
 
-const overallRiskScore = Math.round(
-  riskMetrics.reduce((acc, m) => acc + m.score, 0) / riskMetrics.length
-);
-
 export const RiskIndicator = () => {
-  const overallRisk = getRiskLevel(overallRiskScore);
+  const [metrics, setMetrics] = useState<RiskMetric[]>([]);
+  const [overallScore, setOverallScore] = useState<number | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    fetch('/api/risk')
+      .then((r) => r.json())
+      .then((d) => {
+        if (!mounted) return;
+        setMetrics((d.metrics ?? []) as RiskMetric[]);
+        setOverallScore(typeof d.overallScore === 'number' ? d.overallScore : null);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setMetrics(fallbackMetrics);
+        setOverallScore(
+          Math.round(fallbackMetrics.reduce((a, m) => a + m.score, 0) / fallbackMetrics.length)
+        );
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const score =
+    typeof overallScore === 'number'
+      ? overallScore
+      : Math.round((metrics.length ? metrics : fallbackMetrics).reduce((a, m) => a + m.score, 0) /
+          (metrics.length ? metrics.length : fallbackMetrics.length));
+  const overallRisk = getRiskLevel(score);
 
   return (
     <div className="glass-card p-6">
@@ -82,14 +108,14 @@ export const RiskIndicator = () => {
                 `border-${overallRisk.bgColor.replace('bg-', '')}`
               )}
               style={{ 
-                clipPath: `polygon(0 100%, 0 0, ${overallRiskScore}% 0, ${overallRiskScore}% 100%)`,
+                clipPath: `polygon(0 100%, 0 0, ${score}% 0, ${score}% 100%)`,
               }}
             />
             
             {/* Center Value */}
             <div className="absolute bottom-0 left-1/2 -translate-x-1/2 text-center">
               <p className={cn("text-3xl font-bold font-mono", overallRisk.color)}>
-                {overallRiskScore}
+                {score}
               </p>
               <p className="text-xs text-muted-foreground">Overall Score</p>
             </div>
@@ -105,7 +131,7 @@ export const RiskIndicator = () => {
 
       {/* Individual Risk Metrics */}
       <div className="space-y-4">
-        {riskMetrics.map((metric) => {
+        {(metrics.length ? metrics : fallbackMetrics).map((metric) => {
           const risk = getRiskLevel(metric.score);
           
           return (

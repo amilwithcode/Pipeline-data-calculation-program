@@ -1,5 +1,5 @@
-import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { QualityMetrics } from '@/components/dashboard/QualityMetrics';
+import { DashboardLayout } from '@/src/components/layout/DashboardLayout';
+import { QualityMetrics } from '@/src/components/quality/QualityMetrics';
 
 const Quality = () => {
   return (

@@ -1,8 +1,9 @@
-import { Bell, Search, RefreshCw } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Bell, Search, RefreshCw, Sun, Moon } from 'lucide-react';
+import { Button } from '@/src/components/ui/button';
+import { Input } from '@/src/components/ui/input';
 import { useState } from 'react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/src/lib/utils';
+import { useTheme } from 'next-themes';
 
 interface HeaderProps {
   title: string;
@@ -12,6 +13,11 @@ interface HeaderProps {
 export const Header = ({ title, subtitle }: HeaderProps) => {
   const [alerts] = useState(3);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const { resolvedTheme, setTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
+  const toggleTheme = () => {
+    setTheme(isDark ? 'light' : 'dark');
+  };
 
   const handleRefresh = () => {
     setIsRefreshing(true);
@@ -43,6 +49,17 @@ export const Header = ({ title, subtitle }: HeaderProps) => {
           className="text-muted-foreground hover:text-foreground"
         >
           <RefreshCw className={cn("w-5 h-5", isRefreshing && "animate-spin")} />
+        </Button>
+
+        {/* Theme Toggle */}
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Toggle theme"
+          className="text-muted-foreground hover:text-foreground"
+          onClick={toggleTheme}
+        >
+          {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
         </Button>
 
         {/* Notifications */}

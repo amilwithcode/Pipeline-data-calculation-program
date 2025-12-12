@@ -1,5 +1,6 @@
+import { useEffect, useState } from 'react';
 import { Building2, TrendingUp, TrendingDown, Star, Truck } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/src/lib/utils';
 
 interface Supplier {
   id: string;
@@ -12,7 +13,7 @@ interface Supplier {
   status: 'active' | 'pending' | 'issue';
 }
 
-const suppliers: Supplier[] = [
+const fallbackSuppliers: Supplier[] = [
   { id: '1', name: 'SteelPro Industries', rating: 4.8, deliveryScore: 96, qualityScore: 98, activeOrders: 12, trend: 'up', status: 'active' },
   { id: '2', name: 'MetalCo Global', rating: 4.5, deliveryScore: 89, qualityScore: 95, activeOrders: 8, trend: 'down', status: 'issue' },
   { id: '3', name: 'PrimeAlloys Ltd', rating: 4.7, deliveryScore: 94, qualityScore: 97, activeOrders: 15, trend: 'up', status: 'active' },
@@ -26,6 +27,16 @@ const statusConfig = {
 };
 
 export const SupplierOverview = () => {
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    fetch('/api/suppliers')
+      .then(r => r.json())
+      .then(d => { if (!mounted) return; setSuppliers(Array.isArray(d.suppliers) ? d.suppliers : []); })
+      .catch(() => { if (!mounted) return; setSuppliers(fallbackSuppliers); });
+    return () => { mounted = false; };
+  }, []);
   return (
     <div className="glass-card p-6">
       <div className="flex items-center justify-between mb-6">
@@ -33,7 +44,7 @@ export const SupplierOverview = () => {
           <h2 className="text-lg font-semibold text-foreground">Supplier Overview</h2>
           <p className="text-sm text-muted-foreground">Performance & order status</p>
         </div>
-        <span className="text-sm text-muted-foreground">{suppliers.length} Active Suppliers</span>
+        <span className="text-sm text-muted-foreground">{(suppliers.length ? suppliers : fallbackSuppliers).length} Active Suppliers</span>
       </div>
 
       <div className="overflow-x-auto">
@@ -49,7 +60,7 @@ export const SupplierOverview = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-border/50">
-            {suppliers.map((supplier) => (
+            {(suppliers.length ? suppliers : fallbackSuppliers).map((supplier) => (
               <tr key={supplier.id} className="table-row-hover">
                 <td className="py-4 px-4">
                   <div className="flex items-center gap-3">
