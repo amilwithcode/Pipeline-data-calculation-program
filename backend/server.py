@@ -107,6 +107,9 @@ class Handler(SimpleHTTPRequestHandler):
         if self.path.startswith("/api/suppliers"):
             self._json(app._suppliers_fetch())
             return
+        if self.path.startswith("/api/users"):
+            self._json(app._users_fetch())
+            return
         if self.path.startswith("/api/confirmations"):
             self._json(app._admin_confirmations_fetch())
             return

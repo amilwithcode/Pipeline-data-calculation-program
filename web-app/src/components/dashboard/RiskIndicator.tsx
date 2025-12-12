@@ -10,36 +10,6 @@ interface RiskMetric {
   factors: string[];
 }
 
-const fallbackMetrics: RiskMetric[] = [
-  {
-    id: '1',
-    name: 'Supply Chain Risk',
-    score: 28,
-    trend: 'improving',
-    factors: ['Supplier diversity', 'Lead time variability']
-  },
-  {
-    id: '2',
-    name: 'Quality Risk',
-    score: 15,
-    trend: 'stable',
-    factors: ['Defect rate', 'Process capability']
-  },
-  {
-    id: '3',
-    name: 'Delivery Risk',
-    score: 42,
-    trend: 'worsening',
-    factors: ['Transit delays', 'Capacity constraints']
-  },
-  {
-    id: '4',
-    name: 'Production Risk',
-    score: 22,
-    trend: 'improving',
-    factors: ['Equipment reliability', 'Workforce availability']
-  },
-];
 
 const getRiskLevel = (score: number) => {
   if (score <= 25) return { label: 'Low', color: 'text-success', bgColor: 'bg-success', gradient: 'from-success to-success/50' };
@@ -62,21 +32,15 @@ export const RiskIndicator = () => {
       })
       .catch(() => {
         if (!mounted) return;
-        setMetrics(fallbackMetrics);
-        setOverallScore(
-          Math.round(fallbackMetrics.reduce((a, m) => a + m.score, 0) / fallbackMetrics.length)
-        );
+        setMetrics([]);
+        setOverallScore(0);
       });
     return () => {
       mounted = false;
     };
   }, []);
 
-  const score =
-    typeof overallScore === 'number'
-      ? overallScore
-      : Math.round((metrics.length ? metrics : fallbackMetrics).reduce((a, m) => a + m.score, 0) /
-          (metrics.length ? metrics.length : fallbackMetrics.length));
+  const score = typeof overallScore === 'number' ? overallScore : 0;
   const overallRisk = getRiskLevel(score);
 
   return (
@@ -131,7 +95,7 @@ export const RiskIndicator = () => {
 
       {/* Individual Risk Metrics */}
       <div className="space-y-4">
-        {(metrics.length ? metrics : fallbackMetrics).map((metric) => {
+        {metrics.map((metric) => {
           const risk = getRiskLevel(metric.score);
           
           return (

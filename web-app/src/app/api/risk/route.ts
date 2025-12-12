@@ -31,14 +31,7 @@ export async function GET() {
     }
     throw new Error("missing_env");
   } catch {
-    const metrics = [
-      { id: "1", name: "Supply Chain Risk", score: 28, trend: "improving", factors: ["Supplier diversity", "Lead time variability"] },
-      { id: "2", name: "Quality Risk", score: 15, trend: "stable", factors: ["Defect rate", "Process capability"] },
-      { id: "3", name: "Delivery Risk", score: 42, trend: "worsening", factors: ["Transit delays", "Capacity constraints"] },
-      { id: "4", name: "Production Risk", score: 22, trend: "improving", factors: ["Equipment reliability", "Workforce availability"] },
-    ];
-    const overallScore = Math.round(metrics.reduce((a, m) => a + m.score, 0) / metrics.length);
-    return NextResponse.json({ metrics, overallScore });
+    return NextResponse.json({ metrics: [], overallScore: 0 });
   }
 }
 

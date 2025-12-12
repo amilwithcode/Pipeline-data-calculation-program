@@ -3,15 +3,6 @@ import { useEffect, useState } from 'react';
 import { cn } from '@/src/lib/utils';
 
 type Point = { date: string; production: number; target: number; defects: number };
-const fallbackData: Point[] = [
-  { date: 'Mon', production: 4200, target: 4500, defects: 12 },
-  { date: 'Tue', production: 4800, target: 4500, defects: 8 },
-  { date: 'Wed', production: 4650, target: 4500, defects: 15 },
-  { date: 'Thu', production: 5100, target: 4500, defects: 6 },
-  { date: 'Fri', production: 4900, target: 4500, defects: 10 },
-  { date: 'Sat', production: 3800, target: 4000, defects: 4 },
-  { date: 'Sun', production: 2200, target: 2500, defects: 2 },
-];
 
 export const ProductionChart = () => {
   const [activeChart, setActiveChart] = useState<'production' | 'defects'>('production');
@@ -22,7 +13,7 @@ export const ProductionChart = () => {
     fetch('/api/production')
       .then(r => r.json())
       .then(d => { if (!mounted) return; setData(Array.isArray(d.items) ? d.items : []); })
-      .catch(() => { if (!mounted) return; setData(fallbackData); });
+      .catch(() => { if (!mounted) return; setData([]); });
     return () => { mounted = false; };
   }, []);
 
@@ -60,9 +51,12 @@ export const ProductionChart = () => {
       </div>
 
       <div className="h-72">
+        {!data.length ? (
+          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">No production data</div>
+        ) : (
         <ResponsiveContainer width="100%" height="100%">
           {activeChart === 'production' ? (
-            <AreaChart data={data.length ? data : fallbackData}>
+            <AreaChart data={data}>
               <defs>
                 <linearGradient id="productionGradient" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="hsl(210 70% 50%)" stopOpacity={0.3}/>
@@ -116,7 +110,7 @@ export const ProductionChart = () => {
               />
             </AreaChart>
           ) : (
-            <BarChart data={data.length ? data : fallbackData}>
+            <BarChart data={data}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 15% 22%)" vertical={false} />
               <XAxis 
                 dataKey="date" 
@@ -149,6 +143,7 @@ export const ProductionChart = () => {
             </BarChart>
           )}
         </ResponsiveContainer>
+        )}
       </div>
 
       <div className="flex items-center justify-center gap-8 mt-4 pt-4 border-t border-border">

@@ -29,13 +29,7 @@ export async function GET() {
     }
     throw new Error("missing_env");
   } catch {
-    const suppliers = [
-      { id: '1', name: 'SteelPro Industries', rating: 4.8, deliveryScore: 96, qualityScore: 98, activeOrders: 12, trend: 'up', status: 'active' },
-      { id: '2', name: 'MetalCo Global', rating: 4.5, deliveryScore: 89, qualityScore: 95, activeOrders: 8, trend: 'down', status: 'issue' },
-      { id: '3', name: 'PrimeAlloys Ltd', rating: 4.7, deliveryScore: 94, qualityScore: 97, activeOrders: 15, trend: 'up', status: 'active' },
-      { id: '4', name: 'CoreMetal Solutions', rating: 4.3, deliveryScore: 91, qualityScore: 93, activeOrders: 6, trend: 'stable', status: 'pending' },
-    ];
-    return NextResponse.json({ suppliers });
+    return NextResponse.json({ suppliers: [] });
   }
 }
 

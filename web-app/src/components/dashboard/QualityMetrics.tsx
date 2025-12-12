@@ -11,13 +11,6 @@ interface QualityTest {
   failed: number;
 }
 
-const fallbackTests: QualityTest[] = [
-  { id: '1', name: 'Tensile Strength', passRate: 98.5, totalTests: 420, passed: 414, failed: 6 },
-  { id: '2', name: 'Hydrostatic Pressure', passRate: 99.2, totalTests: 380, passed: 377, failed: 3 },
-  { id: '3', name: 'Dimensional Accuracy', passRate: 97.8, totalTests: 450, passed: 440, failed: 10 },
-  { id: '4', name: 'Surface Finish', passRate: 96.4, totalTests: 390, passed: 376, failed: 14 },
-  { id: '5', name: 'Chemical Composition', passRate: 99.7, totalTests: 310, passed: 309, failed: 1 },
-];
 
 export const QualityMetrics = () => {
   const [tests, setTests] = useState<QualityTest[]>([]);
@@ -34,20 +27,16 @@ export const QualityMetrics = () => {
       })
       .catch(() => {
         if (!mounted) return;
-        setTests(fallbackTests);
-        setTotals({
-          total: fallbackTests.reduce((a, t) => a + t.totalTests, 0),
-          passed: fallbackTests.reduce((a, t) => a + t.passed, 0),
-          failed: fallbackTests.reduce((a, t) => a + t.failed, 0),
-        });
+        setTests([]);
+        setTotals({ total: 0, passed: 0, failed: 0 });
       });
     return () => { mounted = false; };
   }, []);
 
-  const list = tests.length ? tests : fallbackTests;
-  const overallPassRate = (
-    list.reduce((acc, test) => acc + test.passRate, 0) / list.length
-  ).toFixed(1);
+  const list = tests;
+  const overallPassRate = list.length
+    ? (list.reduce((acc, test) => acc + test.passRate, 0) / list.length).toFixed(1)
+    : '0.0';
 
   return (
     <div className="glass-card p-6">

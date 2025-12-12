@@ -25,16 +25,7 @@ export async function GET() {
     }
     throw new Error("missing_env");
   } catch {
-    const items = [
-      { date: 'Mon', production: 4200, target: 4500, defects: 12 },
-      { date: 'Tue', production: 4800, target: 4500, defects: 8 },
-      { date: 'Wed', production: 4650, target: 4500, defects: 15 },
-      { date: 'Thu', production: 5100, target: 4500, defects: 6 },
-      { date: 'Fri', production: 4900, target: 4500, defects: 10 },
-      { date: 'Sat', production: 3800, target: 4000, defects: 4 },
-      { date: 'Sun', production: 2200, target: 2500, defects: 2 },
-    ];
-    return NextResponse.json({ items });
+    return NextResponse.json({ items: [] });
   }
 }
 

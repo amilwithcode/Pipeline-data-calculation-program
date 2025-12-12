@@ -1,9 +1,12 @@
-import { Bell, Search, RefreshCw, Sun, Moon } from 'lucide-react';
+"use client";
+import { Bell, Search, RefreshCw, Sun, Moon, Shield, LogOut } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { Input } from '@/src/components/ui/input';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { cn } from '@/src/lib/utils';
 import { useTheme } from 'next-themes';
+import { useRouter } from 'next/navigation';
+import { Popover, PopoverContent, PopoverTrigger } from '@/src/components/ui/popover';
 
 interface HeaderProps {
   title: string;
@@ -11,17 +14,55 @@ interface HeaderProps {
 }
 
 export const Header = ({ title, subtitle }: HeaderProps) => {
-  const [alerts] = useState(3);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifLoading, setNotifLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const { resolvedTheme, setTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
+  const router = useRouter();
   const toggleTheme = () => {
     setTheme(isDark ? 'light' : 'dark');
   };
 
+  useEffect(() => {
+    if (!notifOpen) return;
+    let mounted = true;
+    setNotifLoading(true);
+    fetch('/api/confirmations')
+      .then((r) => r.json())
+      .then((d) => {
+        if (!mounted) return;
+        const arr = Array.isArray(d) ? d : Array.isArray(d?.confirmations) ? d.confirmations : [];
+        setNotifications(arr);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setNotifications([]);
+      })
+      .finally(() => {
+        if (!mounted) return;
+        setNotifLoading(false);
+      });
+    return () => { mounted = false; };
+  }, [notifOpen]);
+
   const handleRefresh = () => {
     setIsRefreshing(true);
     setTimeout(() => setIsRefreshing(false), 1000);
+  };
+
+  
+  const goAdminAuth = () => {
+    router.push('/?view=auth');
+  };
+  const logout = () => {
+    try {
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem('user');
+      }
+    } catch {}
+    router.push('/auth');
   };
 
   return (
@@ -63,19 +104,66 @@ export const Header = ({ title, subtitle }: HeaderProps) => {
         </Button>
 
         {/* Notifications */}
-        <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-foreground">
-          <Bell className="w-5 h-5" />
-          {alerts > 0 && (
-            <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-destructive text-destructive-foreground text-xs flex items-center justify-center font-medium">
-              {alerts}
-            </span>
-          )}
-        </Button>
+        <Popover open={notifOpen} onOpenChange={setNotifOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-foreground">
+              <Bell className="w-5 h-5" />
+              {notifications.length > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-destructive text-destructive-foreground text-xs flex items-center justify-center font-medium">
+                  {notifications.length}
+                </span>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-80 p-0">
+            <div className="p-4 border-b border-border">
+              <p className="text-sm font-semibold text-foreground">Bildirişlər</p>
+              <p className="text-xs text-muted-foreground">Admin üçün sistem fəaliyyətləri</p>
+            </div>
+            <div className="max-h-80 overflow-auto p-2">
+              {notifLoading && (
+                <div className="py-6 text-center text-sm text-muted-foreground">Yüklənir...</div>
+              )}
+              {!notifLoading && notifications.length === 0 && (
+                <div className="py-6 text-center text-sm text-muted-foreground">Bildiriş yoxdur</div>
+              )}
+              {!notifLoading && notifications.length > 0 && (
+                <div className="space-y-2">
+                  {notifications.map((n, idx) => {
+                    const supplier = String(n?.supplier || n?.company || n?.company_name || n?.name || "Təchizatçı");
+                    const action = String(n?.action || n?.event || n?.description || n?.record || n?.item || "əlavə edildi");
+                    const target = String(n?.target || n?.entity || n?.table || n?.module || "");
+                    const time = String(n?.created_at || n?.timestamp || "");
+                    return (
+                      <div key={idx} className="p-3 rounded-md bg-secondary/30 border border-border/50">
+                        <p className="text-sm text-foreground">
+                          {supplier}: {action}{target ? ` (${target})` : ''}
+                        </p>
+                        {time && <p className="text-xs text-muted-foreground mt-1">{time}</p>}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
 
         {/* Live Indicator */}
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-success/10 border border-success/30">
           <span className="w-2 h-2 rounded-full bg-success pulse-dot" />
           <span className="text-xs font-medium text-success">Live</span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button className="gap-2" onClick={goAdminAuth}>
+            <Shield className="w-4 h-4" />
+            Admin
+          </Button>
+          <Button variant="outline" className="gap-2" onClick={logout}>
+            <LogOut className="w-4 h-4" />
+            Logout
+          </Button>
         </div>
       </div>
     </header>

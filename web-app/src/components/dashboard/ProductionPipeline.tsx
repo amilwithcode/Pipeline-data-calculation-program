@@ -1,5 +1,6 @@
 import { CheckCircle2, Circle, Clock, AlertCircle } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
+import { useEffect, useState } from 'react';
 
 interface PipelineStage {
   id: string;
@@ -10,16 +11,16 @@ interface PipelineStage {
   eta?: string;
 }
 
-const stages: PipelineStage[] = [
-  { id: '1', name: 'Raw Material Intake', status: 'completed', quantity: 5200 },
-  { id: '2', name: 'Material Processing', status: 'completed', quantity: 4800 },
-  { id: '3', name: 'Pipe Formation', status: 'in-progress', progress: 67, quantity: 3200 },
-  { id: '4', name: 'Heat Treatment', status: 'pending', eta: '2h 30m' },
-  { id: '5', name: 'Quality Testing', status: 'pending', eta: '4h 15m' },
-  { id: '6', name: 'Coating & Finishing', status: 'pending', eta: '6h 45m' },
-  { id: '7', name: 'Final Inspection', status: 'pending', eta: '8h 20m' },
-  { id: '8', name: 'Packaging', status: 'pending', eta: '10h' },
-];
+export const ProductionPipeline = () => {
+  const [stages, setStages] = useState<PipelineStage[]>([]);
+  useEffect(() => {
+    let mounted = true;
+    fetch('/api/pipeline')
+      .then(r => r.json())
+      .then(d => { if (!mounted) return; setStages(Array.isArray(d.stages) ? d.stages : []); })
+      .catch(() => { if (!mounted) return; setStages([]); });
+    return () => { mounted = false; };
+  }, []);
 
 const statusConfig = {
   completed: {
@@ -52,7 +53,6 @@ const statusConfig = {
   }
 };
 
-export const ProductionPipeline = () => {
   return (
     <div className="glass-card p-6">
       <div className="flex items-center justify-between mb-6">
@@ -75,7 +75,7 @@ export const ProductionPipeline = () => {
         <div className="absolute top-6 left-6 right-6 h-1 bg-secondary rounded-full" />
         <div 
           className="absolute top-6 left-6 h-1 bg-gradient-to-r from-success via-primary to-primary rounded-full transition-all duration-1000"
-          style={{ width: '35%' }}
+          style={{ width: stages.length ? '35%' : '0%' }}
         />
 
         {/* Stages */}
@@ -127,6 +127,9 @@ export const ProductionPipeline = () => {
               </div>
             );
           })}
+          {!stages.length && (
+            <div className="col-span-4 lg:col-span-8 text-center py-6 text-sm text-muted-foreground">No pipeline stages</div>
+          )}
         </div>
       </div>
     </div>

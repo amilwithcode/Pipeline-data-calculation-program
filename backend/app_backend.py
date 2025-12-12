@@ -122,6 +122,9 @@ def _supplier_get_or_create(name: str):
 def _admin_confirmations_fetch() -> list:
     return list(_rest("confirmations", "GET") or [])
 
+def _users_fetch() -> list:
+    return list(_rest("users", "GET") or [])
+
 def _hash_pw(pw: str) -> str:
     return hashlib.sha256((pw or "").encode("utf-8")).hexdigest()
 

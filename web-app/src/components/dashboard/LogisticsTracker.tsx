@@ -1,5 +1,6 @@
 import { Truck, Package, MapPin, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
+import { useEffect, useState } from 'react';
 
 interface Shipment {
   id: string;
@@ -12,12 +13,16 @@ interface Shipment {
   quantity: number;
 }
 
-const shipments: Shipment[] = [
-  { id: '1', orderId: 'ORD-2024-001', destination: 'Dubai, UAE', status: 'in-transit', eta: '4h 30m', progress: 65, carrier: 'FastFreight', quantity: 2500 },
-  { id: '2', orderId: 'ORD-2024-002', destination: 'Mumbai, India', status: 'delivered', eta: 'Delivered', progress: 100, carrier: 'SeaLine', quantity: 5000 },
-  { id: '3', orderId: 'ORD-2024-003', destination: 'Singapore', status: 'delayed', eta: '+6h delay', progress: 45, carrier: 'OceanCargo', quantity: 3200 },
-  { id: '4', orderId: 'ORD-2024-004', destination: 'Jakarta, Indonesia', status: 'pending', eta: 'Awaiting', progress: 0, carrier: 'GlobalShip', quantity: 1800 },
-];
+export const LogisticsTracker = () => {
+  const [shipments, setShipments] = useState<Shipment[]>([]);
+  useEffect(() => {
+    let mounted = true;
+    fetch('/api/shipments')
+      .then(r => r.json())
+      .then(d => { if (!mounted) return; setShipments(Array.isArray(d.shipments) ? d.shipments : []); })
+      .catch(() => { if (!mounted) return; setShipments([]); });
+    return () => { mounted = false; };
+  }, []);
 
 const statusConfig = {
   'in-transit': { icon: Truck, color: 'text-primary', bgColor: 'bg-primary/10', label: 'In Transit' },
@@ -26,7 +31,6 @@ const statusConfig = {
   'pending': { icon: Clock, color: 'text-warning', bgColor: 'bg-warning/10', label: 'Pending' },
 };
 
-export const LogisticsTracker = () => {
   const inTransit = shipments.filter(s => s.status === 'in-transit').length;
   const delivered = shipments.filter(s => s.status === 'delivered').length;
   const delayed = shipments.filter(s => s.status === 'delayed').length;
@@ -109,6 +113,9 @@ export const LogisticsTracker = () => {
             </div>
           );
         })}
+        {!shipments.length && (
+          <div className="text-center py-8 text-sm text-muted-foreground">No shipments</div>
+        )}
       </div>
     </div>
   );

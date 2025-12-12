@@ -21,6 +21,8 @@ import { Button } from '@/src/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card';
 import { Badge } from '@/src/components/ui/badge';
 import { Input } from '@/src/components/ui/input';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/src/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/src/components/ui/tabs';
 import {
   Table,
@@ -40,12 +42,12 @@ import { useToast } from '@/src/hooks/use-toast';
 
 interface User {
   id: string;
-  name: string;
+  name?: string;
   email: string;
-  role: 'admin' | 'supplier' | 'viewer';
-  status: 'active' | 'pending' | 'suspended';
+  role?: 'admin' | 'supplier' | 'viewer';
+  status?: 'active' | 'pending' | 'suspended';
   company?: string;
-  lastActive: string;
+  lastActive?: string;
 }
 
 interface Supplier {
@@ -60,13 +62,6 @@ interface Supplier {
   status: 'active' | 'pending' | 'inactive';
 }
 
-const mockUsers: User[] = [
-  { id: '1', name: 'John Smith', email: 'john@steelworks.com', role: 'supplier', status: 'active', company: 'SteelWorks Inc.', lastActive: '2 hours ago' },
-  { id: '2', name: 'Sarah Connor', email: 'sarah@pipeflow.com', role: 'admin', status: 'active', lastActive: '5 minutes ago' },
-  { id: '3', name: 'Mike Johnson', email: 'mike@valveco.com', role: 'supplier', status: 'pending', company: 'ValveCo', lastActive: 'Never' },
-  { id: '4', name: 'Emily Davis', email: 'emily@fittings.com', role: 'supplier', status: 'active', company: 'Premium Fittings', lastActive: '1 day ago' },
-  { id: '5', name: 'Robert Chen', email: 'robert@pipeflow.com', role: 'viewer', status: 'active', lastActive: '3 hours ago' },
-];
 
 const mockSuppliers: Supplier[] = [
   { id: '1', name: 'John Smith', company: 'SteelWorks Inc.', email: 'john@steelworks.com', rating: 4.8, deliveryScore: 96, qualityScore: 98, activeOrders: 5, status: 'active' },
@@ -91,6 +86,13 @@ const statusConfig = {
 export default function Admin() {
   const [user, setUser] = useState<{ name: string; email: string; role: string } | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [users, setUsers] = useState<User[]>([]);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [invitePassword, setInvitePassword] = useState('');
+  const [inviteRole, setInviteRole] = useState<'admin'|'supplier'|'viewer'>('supplier');
+  const [inviteCompany, setInviteCompany] = useState('');
+  const [inviting, setInviting] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -109,6 +111,27 @@ export default function Admin() {
     setUser(parsed);
   }, [navigate, toast]);
 
+  useEffect(() => {
+    let mounted = true;
+    fetch('/api/users')
+      .then((r) => r.json())
+      .then((arr) => {
+        if (!mounted) return;
+        const list: User[] = Array.isArray(arr) ? arr.map((u: any) => ({
+          id: String(u.id ?? u.email ?? Math.random()),
+          name: String(u.name ?? u.full_name ?? '').trim() || undefined,
+          email: String(u.email ?? ''),
+          role: (u.role ?? 'viewer'),
+          status: (u.status ?? 'active'),
+          company: u.company ?? u.company_name ?? undefined,
+          lastActive: u.last_active ?? u.lastActive ?? undefined,
+        })) : [];
+        setUsers(list);
+      })
+      .catch(() => { if (!mounted) return; setUsers([]); });
+    return () => { mounted = false; };
+  }, []);
+
   const handleLogout = () => {
     localStorage.removeItem('user');
     toast({ title: 'Logged out', description: 'See you next time!' });
@@ -119,9 +142,9 @@ export default function Admin() {
     toast({ title: 'Approved', description: `${type === 'user' ? 'User' : 'Supplier'} has been approved` });
   };
 
-  const filteredUsers = mockUsers.filter(u => 
-    u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    u.email.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredUsers = users.filter(u => 
+    (u.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (u.email || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const filteredSuppliers = mockSuppliers.filter(s => 
@@ -129,7 +152,7 @@ export default function Admin() {
     s.company.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const pendingApprovals = mockUsers.filter(u => u.status === 'pending').length + 
+  const pendingApprovals = users.filter(u => u.status === 'pending').length + 
                           mockSuppliers.filter(s => s.status === 'pending').length;
 
   return (
@@ -152,12 +175,17 @@ export default function Admin() {
               <Factory className="w-4 h-4 mr-2" />
               Dashboard
             </Button>
+            <Button size="sm" className="gap-2" onClick={() => navigate('/auth')}>
+              <Shield className="w-4 h-4" />
+              Admin
+            </Button>
             <div className="text-right">
               <p className="text-sm font-medium text-foreground">{user?.name}</p>
               <p className="text-xs text-muted-foreground">Administrator</p>
             </div>
-            <Button variant="ghost" size="icon" onClick={handleLogout}>
-              <LogOut className="w-5 h-5" />
+            <Button variant="outline" className="gap-2" onClick={handleLogout}>
+              <LogOut className="w-4 h-4" />
+              Logout
             </Button>
           </div>
         </div>
@@ -171,7 +199,7 @@ export default function Admin() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Total Users</p>
-                  <p className="text-3xl font-bold text-foreground">{mockUsers.length}</p>
+                  <p className="text-3xl font-bold text-foreground">{users.length}</p>
                 </div>
                 <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
                   <Users className="w-6 h-6 text-primary" />
@@ -240,16 +268,73 @@ export default function Admin() {
               <Button variant="outline" size="icon">
                 <Filter className="w-4 h-4" />
               </Button>
-              <Button className="gap-2">
+              <Button className="gap-2" onClick={() => setInviteOpen(true)}>
                 <UserPlus className="w-4 h-4" />
                 Invite User
               </Button>
             </div>
           </CardHeader>
           <CardContent>
+            <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Yeni istifadəçi əlavə et</DialogTitle>
+                  <DialogDescription>Email, rol və şifrə daxil edin</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-3">
+                  <Input placeholder="Email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} />
+                  <Input placeholder="Şifrə" type="password" value={invitePassword} onChange={(e) => setInvitePassword(e.target.value)} />
+                  <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as any)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Rol" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="supplier">Supplier</SelectItem>
+                      <SelectItem value="viewer">Viewer</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {inviteRole === 'supplier' && (
+                    <Input placeholder="Şirkət adı" value={inviteCompany} onChange={(e) => setInviteCompany(e.target.value)} />
+                  )}
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setInviteOpen(false)}>Bağla</Button>
+                  <Button disabled={inviting || !inviteEmail || !invitePassword} onClick={async () => {
+                    try {
+                      setInviting(true);
+                      const payload: any = { role: inviteRole, email: inviteEmail, password: invitePassword };
+                      if (inviteRole === 'supplier' && inviteCompany) payload.company_name = inviteCompany;
+                      const r = await fetch('/api/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                      const d = await r.json();
+                      if (d?.ok) {
+                        setInviteOpen(false);
+                        setInviteEmail('');
+                        setInvitePassword('');
+                        setInviteCompany('');
+                        fetch('/api/users').then(rr => rr.json()).then(arr => {
+                          const list: User[] = Array.isArray(arr) ? arr.map((u: any) => ({
+                            id: String(u.id ?? u.email ?? Math.random()),
+                            name: String(u.name ?? u.full_name ?? '').trim() || undefined,
+                            email: String(u.email ?? ''),
+                            role: (u.role ?? 'viewer'),
+                            status: (u.status ?? 'active'),
+                            company: u.company ?? u.company_name ?? undefined,
+                            lastActive: u.last_active ?? u.lastActive ?? undefined,
+                          })) : [];
+                          setUsers(list);
+                        }).catch(() => {});
+                      }
+                    } finally {
+                      setInviting(false);
+                    }
+                  }}>Əlavə et</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
             <Tabs defaultValue="users" className="space-y-4">
               <TabsList>
-                <TabsTrigger value="users">Users ({mockUsers.length})</TabsTrigger>
+                <TabsTrigger value="users">Users ({users.length})</TabsTrigger>
                 <TabsTrigger value="suppliers">Suppliers ({mockSuppliers.length})</TabsTrigger>
                 <TabsTrigger value="pending">Pending ({pendingApprovals})</TabsTrigger>
               </TabsList>
@@ -268,18 +353,18 @@ export default function Admin() {
                   </TableHeader>
                   <TableBody>
                     {filteredUsers.map((user) => {
-                      const roleStyle = roleConfig[user.role];
-                      const statusStyle = statusConfig[user.status];
+                      const roleStyle = roleConfig[(user.role ?? 'viewer') as keyof typeof roleConfig];
+                      const statusStyle = statusConfig[(user.status ?? 'active') as keyof typeof statusConfig];
                       const StatusIcon = statusStyle.icon;
                       return (
                         <TableRow key={user.id} className="table-row-hover">
                           <TableCell>
                             <div className="flex items-center gap-3">
                               <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold text-primary">
-                                {user.name.split(' ').map(n => n[0]).join('')}
+                                {(user.name || user.email || '').split(' ').map(n => n[0]).join('')}
                               </div>
                               <div>
-                                <p className="font-medium text-foreground">{user.name}</p>
+                                <p className="font-medium text-foreground">{user.name || '—'}</p>
                                 <p className="text-sm text-muted-foreground">{user.email}</p>
                               </div>
                             </div>
@@ -296,7 +381,7 @@ export default function Admin() {
                             </Badge>
                           </TableCell>
                           <TableCell className="text-muted-foreground">{user.company || '—'}</TableCell>
-                          <TableCell className="text-muted-foreground">{user.lastActive}</TableCell>
+                          <TableCell className="text-muted-foreground">{user.lastActive || '—'}</TableCell>
                           <TableCell>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
@@ -409,7 +494,7 @@ export default function Admin() {
 
               <TabsContent value="pending">
                 <div className="space-y-4">
-                  {[...mockUsers.filter(u => u.status === 'pending'), ...mockSuppliers.filter(s => s.status === 'pending')].map((item) => (
+                  {[...users.filter(u => u.status === 'pending'), ...mockSuppliers.filter(s => s.status === 'pending')].map((item) => (
                     <div key={item.id} className="flex items-center justify-between p-4 rounded-lg bg-secondary/30">
                       <div className="flex items-center gap-4">
                         <div className="w-10 h-10 rounded-full bg-warning/10 flex items-center justify-center">
