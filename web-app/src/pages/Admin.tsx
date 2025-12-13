@@ -39,6 +39,7 @@ import {
   DropdownMenuTrigger,
 } from '@/src/components/ui/dropdown-menu';
 import { useToast } from '@/src/hooks/use-toast';
+import { Progress } from '@/src/components/ui/progress';
 
 interface User {
   id: string;
@@ -93,6 +94,9 @@ export default function Admin() {
   const [inviteRole, setInviteRole] = useState<'admin'|'supplier'|'viewer'>('supplier');
   const [inviteCompany, setInviteCompany] = useState('');
   const [inviting, setInviting] = useState(false);
+  const [supplierProfileOpen, setSupplierProfileOpen] = useState(false);
+  const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
+  const [supplierOrders, setSupplierOrders] = useState<any[]>([]);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -131,6 +135,19 @@ export default function Admin() {
       .catch(() => { if (!mounted) return; setUsers([]); });
     return () => { mounted = false; };
   }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    if (!supplierProfileOpen || !selectedSupplier) { setSupplierOrders([]); return; }
+    const sid = selectedSupplier.id ? String(selectedSupplier.id) : undefined;
+    const sname = selectedSupplier.company || selectedSupplier.name;
+    const qs = sid ? `supplier_id=${encodeURIComponent(sid)}` : `supplier=${encodeURIComponent(sname)}`;
+    fetch(`/api/orders?${qs}`)
+      .then(r => r.json())
+      .then(d => { if (!mounted) return; setSupplierOrders(Array.isArray(d.orders) ? d.orders : []); })
+      .catch(() => { if (!mounted) return; setSupplierOrders([]); });
+    return () => { mounted = false; };
+  }, [supplierProfileOpen, selectedSupplier]);
 
   const handleLogout = () => {
     localStorage.removeItem('user');
@@ -473,7 +490,7 @@ export default function Admin() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                <DropdownMenuItem>View Details</DropdownMenuItem>
+                                <DropdownMenuItem onSelect={() => { setSelectedSupplier(supplier); setSupplierProfileOpen(true); }}>View Profile</DropdownMenuItem>
                                 <DropdownMenuItem>View Orders</DropdownMenuItem>
                                 {supplier.status === 'pending' && (
                                   <DropdownMenuItem onClick={() => handleApprove(supplier.id, 'supplier')}>
@@ -490,6 +507,94 @@ export default function Admin() {
                     })}
                   </TableBody>
                 </Table>
+                
+                <Dialog open={supplierProfileOpen} onOpenChange={(o) => { setSupplierProfileOpen(o); if (!o) setSelectedSupplier(null); }}>
+                  <DialogContent className="max-w-5xl w-full">
+                    <DialogHeader>
+                      <DialogTitle className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                          <Factory className="w-5 h-5 text-primary" />
+                        </div>
+                        <span>{selectedSupplier?.company || selectedSupplier?.name || 'Supplier Profile'}</span>
+                        {selectedSupplier?.status && (
+                          <Badge variant="outline" className="ml-2">{String(selectedSupplier.status)}</Badge>
+                        )}
+                      </DialogTitle>
+                      <DialogDescription>
+                        {selectedSupplier?.email || '—'}
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid md:grid-cols-3 gap-6">
+                      <Card className="md:col-span-3">
+                        <CardContent className="p-4 flex flex-wrap items-center gap-4 justify-between">
+                          <div className="text-center">
+                            <p className="text-xs text-muted-foreground">Rating</p>
+                            <p className="text-xl font-semibold">{selectedSupplier?.rating ?? '—'}</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-xs text-muted-foreground">Delivery Score</p>
+                            <p className="text-xl font-semibold">{selectedSupplier?.deliveryScore ?? '—'}</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-xs text-muted-foreground">Quality Score</p>
+                            <p className="text-xl font-semibold">{selectedSupplier?.qualityScore ?? '—'}</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-xs text-muted-foreground">Active Orders</p>
+                            <p className="text-xl font-semibold">{selectedSupplier?.activeOrders ?? 0}</p>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      <Card>
+                        <CardHeader><CardTitle>Performance Metrics</CardTitle></CardHeader>
+                        <CardContent className="space-y-3">
+                          <div>
+                            <div className="flex justify-between text-xs mb-1"><span>On-Time Delivery</span><span>{selectedSupplier?.deliveryScore ?? 0}%</span></div>
+                            <Progress value={selectedSupplier?.deliveryScore ?? 0} />
+                          </div>
+                          <div>
+                            <div className="flex justify-between text-xs mb-1"><span>Quality Score</span><span>{selectedSupplier?.qualityScore ?? 0}%</span></div>
+                            <Progress value={selectedSupplier?.qualityScore ?? 0} />
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      <Card className="md:col-span-2">
+                        <CardHeader><CardTitle>Recent Orders</CardTitle></CardHeader>
+                        <CardContent>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <thead className="bg-secondary">
+                                <tr>
+                                  <th className="p-2 text-left">Order</th>
+                                  <th className="p-2 text-left">Material</th>
+                                  <th className="p-2 text-left">Quantity</th>
+                                  <th className="p-2 text-left">Status</th>
+                                  <th className="p-2 text-left">Value</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {supplierOrders.map((o: any, idx: number) => (
+                                  <tr key={idx} className="border-t border-border">
+                                    <td className="p-2">{o.code || o.id}</td>
+                                    <td className="p-2">{o.material || '—'}</td>
+                                    <td className="p-2">{o.quantity ? `${o.quantity} units` : '—'}</td>
+                                    <td className="p-2">{o.status || '—'}</td>
+                                    <td className="p-2">{o.value ? `$${o.value}` : '—'}</td>
+                                  </tr>
+                                ))}
+                                {!supplierOrders.length && (
+                                  <tr className="border-t border-border"><td className="p-2" colSpan={5}>Sifariş yoxdur</td></tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </TabsContent>
 
               <TabsContent value="pending">

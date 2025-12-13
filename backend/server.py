@@ -108,10 +108,35 @@ class Handler(SimpleHTTPRequestHandler):
             self._json(app._suppliers_fetch())
             return
         if self.path.startswith("/api/users"):
-            self._json(app._users_fetch())
+            rows = app._users_fetch()
+            if not rows:
+                data = app._read_json(app.USERS_LOCAL)
+                rows = data.get("users", [])
+            self._json(rows)
             return
         if self.path.startswith("/api/confirmations"):
             self._json(app._admin_confirmations_fetch())
+            return
+        if self.path.startswith("/api/pipeline"):
+            self._json({"stages": app._pipeline_fetch()})
+            return
+        if self.path.startswith("/api/shipments"):
+            self._json({"shipments": app._shipments_fetch()})
+            return
+        if self.path.startswith("/api/quality"):
+            self._json(app._quality_fetch())
+            return
+        if self.path.startswith("/api/production"):
+            self._json(app._production_fetch())
+            return
+        if self.path.startswith("/api/risk"):
+            self._json(app._risk_fetch())
+            return
+        if self.path.startswith("/api/orders"):
+            q = parse_qs(urlparse(self.path).query)
+            sid = (q.get("supplier_id") or [None])[0]
+            sname = (q.get("supplier") or [None])[0]
+            self._json({"orders": app._orders_fetch(sid, sname)})
             return
         if self.path.startswith("/web/"):
             return SimpleHTTPRequestHandler.do_GET(self)
@@ -135,6 +160,12 @@ class Handler(SimpleHTTPRequestHandler):
                 u = app._user_login(email, password)
                 if u and company:
                     app._supplier_get_or_create(company)
+            if not u:
+                data = app._read_json(app.USERS_LOCAL)
+                arr = list(data.get("users") or [])
+                cand = next((x for x in arr if str(x.get("email")) == str(email)), None)
+                if cand and cand.get("password_hash") == app._hash_pw(password):
+                    u = cand
             ok = bool(u)
             self._json({"ok": ok, "user": u or {}})
             return
@@ -144,6 +175,14 @@ class Handler(SimpleHTTPRequestHandler):
             password = payload.get("password")
             company = payload.get("company_name")
             u = app._user_register(email, password, role)
+            if not u and email and password:
+                data = app._read_json(app.USERS_LOCAL)
+                arr = list(data.get("users") or [])
+                exists = next((x for x in arr if str(x.get("email")) == str(email)), None)
+                if not exists:
+                    arr.append({"id": (arr[-1]["id"] + 1) if arr else 1, "email": email, "password_hash": app._hash_pw(password), "role": role})
+                    app._write_json(app.USERS_LOCAL, {"users": arr})
+                    u = arr[-1]
             if role == "supplier" and u and company:
                 app._supplier_get_or_create(company)
             self._json({"ok": bool(u), "user": u or {}})
@@ -151,6 +190,21 @@ class Handler(SimpleHTTPRequestHandler):
         if self.path.startswith("/api/products"):
             app._product_upsert(payload.get("id"), payload.get("pipeline_name"), int(payload.get("pipeline_stock", 0)))
             self._json({"ok": True})
+            return
+        if self.path.startswith("/api/pipeline"):
+            self._json({"ok": bool(app._pipeline_upsert(payload))})
+            return
+        if self.path.startswith("/api/shipments"):
+            self._json({"ok": bool(app._shipment_insert(payload))})
+            return
+        if self.path.startswith("/api/quality"):
+            self._json({"ok": bool(app._quality_upsert(payload))})
+            return
+        if self.path.startswith("/api/production"):
+            self._json({"ok": bool(app._production_insert(payload))})
+            return
+        if self.path.startswith("/api/orders"):
+            self._json({"ok": bool(app._order_insert(payload))})
             return
         if self.path.startswith("/api/results"):
             app._result_insert(payload)

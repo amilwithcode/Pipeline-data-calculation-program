@@ -23,6 +23,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Progress } from "@/components/ui/progress";
 
 
 type DashboardData = {
@@ -61,6 +62,8 @@ export default function Home() {
   const [inviteRole, setInviteRole] = useState<"admin"|"supplier"|"viewer">("supplier");
   const [inviteCompany, setInviteCompany] = useState("");
   const [inviting, setInviting] = useState(false);
+  const [supplierProfileOpen, setSupplierProfileOpen] = useState(false);
+  const [selectedSupplier, setSelectedSupplier] = useState<any | null>(null);
   
   const { toast } = useToast();
   const router = useRouter();
@@ -701,17 +704,20 @@ export default function Home() {
                           </TableCell>
                           <TableCell className="text-muted-foreground">{supplier.company || '—'}</TableCell>
                           <TableCell>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon"><MoreVertical className="w-4 h-4" /></Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => toast({ title: 'Approved', description: 'Supplier has been approved' })}>
-                                  <CheckCircle2 className="w-4 h-4 mr-2 text-success" />Approve
-                                </DropdownMenuItem>
-                                <DropdownMenuItem className="text-destructive">Deactivate</DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon"><MoreVertical className="w-4 h-4" /></Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => { setSelectedSupplier(supplier); setSupplierProfileOpen(true); }}>
+                                    View Profile
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => toast({ title: 'Approved', description: 'Supplier has been approved' })}>
+                                    <CheckCircle2 className="w-4 h-4 mr-2 text-success" />Approve
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem className="text-destructive">Deactivate</DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -780,6 +786,110 @@ export default function Home() {
                   </div>
                 </TabsContent>
               </Tabs>
+              <Dialog open={supplierProfileOpen} onOpenChange={(o) => { setSupplierProfileOpen(o); if (!o) setSelectedSupplier(null); }}>
+                <DialogContent className="max-w-5xl w-full">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <Factory className="w-5 h-5 text-primary" />
+                      </div>
+                      <span>{selectedSupplier?.company || selectedSupplier?.name || 'Supplier Profile'}</span>
+                      {selectedSupplier?.status && (
+                        <Badge variant="outline" className="ml-2">{String(selectedSupplier.status)}</Badge>
+                      )}
+                    </DialogTitle>
+                    <DialogDescription>
+                      {selectedSupplier?.email || '—'} {selectedSupplier?.phone ? ` · ${selectedSupplier.phone}` : ''}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid md:grid-cols-3 gap-6">
+                    <Card className="md:col-span-3">
+                      <CardContent className="p-4 flex flex-wrap items-center gap-4 justify-between">
+                        <div className="text-center">
+                          <p className="text-xs text-muted-foreground">Rating</p>
+                          <p className="text-xl font-semibold">{selectedSupplier?.rating ?? '—'}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs text-muted-foreground">Delivery Score</p>
+                          <p className="text-xl font-semibold">{selectedSupplier?.delivery_score ?? '—'}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs text-muted-foreground">Quality Score</p>
+                          <p className="text-xl font-semibold">{selectedSupplier?.quality_score ?? '—'}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs text-muted-foreground">Active Orders</p>
+                          <p className="text-xl font-semibold">{selectedSupplier?.active_orders ?? 0}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs text-muted-foreground">Total Orders</p>
+                          <p className="text-xl font-semibold">{selectedSupplier?.total_orders ?? 0}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs text-muted-foreground">Total Value</p>
+                          <p className="text-xl font-semibold">{selectedSupplier?.total_value ? `$${selectedSupplier.total_value}` : '—'}</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader><CardTitle>Performance Metrics</CardTitle></CardHeader>
+                      <CardContent className="space-y-3">
+                        <div>
+                          <div className="flex justify-between text-xs mb-1"><span>On-Time Delivery</span><span>{selectedSupplier?.on_time_delivery ?? 0}%</span></div>
+                          <Progress value={selectedSupplier?.on_time_delivery ?? 0} />
+                        </div>
+                        <div>
+                          <div className="flex justify-between text-xs mb-1"><span>Quality Score</span><span>{selectedSupplier?.quality_score ?? 0}%</span></div>
+                          <Progress value={selectedSupplier?.quality_score ?? 0} />
+                        </div>
+                        <div>
+                          <div className="flex justify_between text-xs mb-1"><span>Order Fulfillment</span><span>{selectedSupplier?.order_fulfillment ?? 0}%</span></div>
+                          <Progress value={selectedSupplier?.order_fulfillment ?? 0} />
+                        </div>
+                        <div>
+                          <div className="flex justify-between text-xs mb-1"><span>Response Rate</span><span>{selectedSupplier?.response_rate ?? 0}%</span></div>
+                          <Progress value={selectedSupplier?.response_rate ?? 0} />
+                        </div>
+                        <div className="text-xs text-muted-foreground">Avg. Response Time {selectedSupplier?.avg_response_time ?? '< 2 hours>'}</div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="md:col-span-2">
+                      <CardHeader><CardTitle>Recent Orders</CardTitle></CardHeader>
+                      <CardContent>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead className="bg-secondary">
+                              <tr>
+                                <th className="p-2 text-left">Order</th>
+                                <th className="p-2 text-left">Material</th>
+                                <th className="p-2 text-left">Quantity</th>
+                                <th className="p-2 text-left">Status</th>
+                                <th className="p-2 text-left">Value</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {(selectedSupplier?.orders || []).map((o: any, idx: number) => (
+                                <tr key={idx} className="border-t border-border">
+                                  <td className="p-2">{o.code || o.id}</td>
+                                  <td className="p-2">{o.material || '—'}</td>
+                                  <td className="p-2">{o.quantity ? `${o.quantity} units` : '—'}</td>
+                                  <td className="p-2">{o.status || '—'}</td>
+                                  <td className="p-2">{o.value ? `$${o.value}` : '—'}</td>
+                                </tr>
+                              ))}
+                              {!(selectedSupplier?.orders || []).length && (
+                                <tr className="border-t border-border"><td className="p-2" colSpan={5}>Sifariş yoxdur</td></tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </CardContent>
           </Card>
         </div>
@@ -803,11 +913,16 @@ function SupplierAdd({ onAdded }: { onAdded: () => void }) {
   const [name, setName] = useState("");
   const [stock, setStock] = useState<number>(0);
   return (
-    <div className="flex gap-2">
-      <input className="border px-2 py-1" placeholder="ID" value={id} onChange={(e)=>setId(e.target.value)} />
-      <input className="border px-2 py-1" placeholder="Ad" value={name} onChange={(e)=>setName(e.target.value)} />
-      <input className="border px-2 py-1" type="number" placeholder="Stok" value={stock} onChange={(e)=>setStock(parseInt(e.target.value||"0",10))} />
-      <button className="px-3 py-2 border rounded" onClick={async()=>{await fetch("/api/products",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id,pipeline_name:name,pipeline_stock:stock})}); onAdded();}}>Əlavə et</button>
+    <div className="flex flex-col gap-3">
+      <input className="border px-2 py-2 rounded" placeholder="ID" value={id} onChange={(e)=>setId(e.target.value)} />
+      <input className="border px-2 py-2 rounded" placeholder="Ad" value={name} onChange={(e)=>setName(e.target.value)} />
+      <input className="border px-2 py-2 rounded" type="number" placeholder="Stok" value={Number.isFinite(stock)?stock:0} onChange={(e)=>setStock(Number(e.target.value||0))} />
+      <div className="pt-2">
+        <button className="px-4 py-2 rounded bg-primary text-primary-foreground disabled:opacity-50" disabled={!id || !name} onClick={async()=>{
+          await fetch("/api/products",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id,pipeline_name:name,pipeline_stock:stock})});
+          onAdded();
+        }}>Məhsulları yadda saxla</button>
+      </div>
     </div>
   );
 }
@@ -850,5 +965,6 @@ function AdminAccount(){
     </div>
   );
 }
+ 
  
  

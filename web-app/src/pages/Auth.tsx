@@ -13,6 +13,7 @@ export default function Auth() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [company, setCompany] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
@@ -21,30 +22,43 @@ export default function Auth() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-
-    // Mock authentication - replace with Supabase when database is ready
-    setTimeout(() => {
+    try {
       if (mode === 'login') {
-        // Mock login - check for demo credentials
-        if (email === 'admin@pipeflow.com' && password === 'admin123') {
-          localStorage.setItem('user', JSON.stringify({ email, role: 'admin', name: 'Admin User' }));
-          toast({ title: 'Welcome back!', description: 'Logged in as Admin' });
-          navigate('/admin');
-        } else if (email === 'supplier@pipeflow.com' && password === 'supplier123') {
-          localStorage.setItem('user', JSON.stringify({ email, role: 'supplier', name: 'Supplier User' }));
-          toast({ title: 'Welcome back!', description: 'Logged in as Supplier' });
-          navigate('/supplier-portal');
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, role: 'supplier' }),
+        });
+        const data = await res.json();
+        if (data.ok && data.user) {
+          const u = data.user;
+          localStorage.setItem('user', JSON.stringify({ email: u.email || email, role: u.role || 'supplier', name: u.full_name || name }));
+          toast({ title: 'Welcome back!', description: 'Login successful' });
+          if ((u.role || '') === 'admin') navigate('/admin'); else navigate('/');
         } else {
           toast({ title: 'Invalid credentials', description: 'Please check your email and password', variant: 'destructive' });
         }
       } else {
-        // Mock registration
-        localStorage.setItem('user', JSON.stringify({ email, role: 'supplier', name }));
-        toast({ title: 'Account created!', description: 'Welcome to PipeFlow' });
-        navigate('/supplier-portal');
+        const res = await fetch('/api/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, role: 'supplier', company_name: company || name }),
+        });
+        const data = await res.json();
+        if (data.ok && data.user) {
+          const u = data.user;
+          localStorage.setItem('user', JSON.stringify({ email: u.email || email, role: u.role || 'supplier', name }));
+          toast({ title: 'Account created!', description: 'Welcome to PipeFlow' });
+          navigate('/');
+        } else {
+          toast({ title: 'Registration failed', description: 'Please try again', variant: 'destructive' });
+        }
       }
+    } catch {
+      toast({ title: 'Network error', description: 'Server is unreachable', variant: 'destructive' });
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -140,6 +154,23 @@ export default function Auth() {
                     onChange={(e) => setName(e.target.value)}
                     className="pl-10 h-12 bg-card border-border"
                     required
+                  />
+                </div>
+              </div>
+            )}
+
+            {mode === 'register' && (
+              <div className="space-y-2">
+                <Label htmlFor="company" className="text-foreground">Company</Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <Input
+                    id="company"
+                    type="text"
+                    placeholder="Acme Co."
+                    value={company}
+                    onChange={(e) => setCompany(e.target.value)}
+                    className="pl-10 h-12 bg-card border-border"
                   />
                 </div>
               </div>
