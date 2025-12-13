@@ -76,7 +76,13 @@ class Handler(SimpleHTTPRequestHandler):
             items = app._products_fetch()
             data = []
             for k,v in items.items():
-                data.append({"id": k, "pipeline_name": v.get("pipeline_name"), "pipeline_stock": v.get("pipeline_stock")})
+                data.append({
+                    "id": k,
+                    "pipeline_name": v.get("pipeline_name"),
+                    "pipeline_stock": v.get("pipeline_stock"),
+                    "name": v.get("pipeline_name"),
+                    "stock": int(v.get("pipeline_stock", 0) or 0),
+                })
             self._json(data)
             return
         if self.path.startswith("/api/alerts"):

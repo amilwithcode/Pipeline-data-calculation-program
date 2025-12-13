@@ -3,8 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { 
   Users, 
   Package, 
-  TrendingUp, 
-  AlertTriangle,
   CheckCircle2,
   XCircle,
   Clock,
@@ -97,6 +95,8 @@ export default function Admin() {
   const [supplierProfileOpen, setSupplierProfileOpen] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
   const [supplierOrders, setSupplierOrders] = useState<any[]>([]);
+  const [qualityPassRate, setQualityPassRate] = useState<number>(0);
+  const [avgLeadDays, setAvgLeadDays] = useState<number>(0);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -133,6 +133,40 @@ export default function Admin() {
         setUsers(list);
       })
       .catch(() => { if (!mounted) return; setUsers([]); });
+    return () => { mounted = false; };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    fetch('/api/quality')
+      .then(r => r.json())
+      .then(d => {
+        if (!mounted) return;
+        const t = d?.totals;
+        let rate = 0;
+        if (t && t.total) {
+          rate = Math.round(((t.passed || 0) / (t.total || 1)) * 1000) / 10;
+        } else if (Array.isArray(d?.tests) && d.tests.length) {
+          rate = Math.round((d.tests.reduce((a: number, x: any) => a + (x.passRate || 0), 0) / d.tests.length) * 10) / 10;
+        }
+        setQualityPassRate(rate);
+      })
+      .catch(() => { if (!mounted) return; setQualityPassRate(0); });
+    fetch('/api/shipments')
+      .then(r => r.json())
+      .then(d => {
+        if (!mounted) return;
+        const items = Array.isArray(d?.shipments) ? d.shipments : [];
+        const diffs = items.map((s: any) => {
+          const o = s.ordered_at ? new Date(s.ordered_at) : null;
+          const dv = s.delivery_date ? new Date(s.delivery_date) : null;
+          if (!o || !dv) return 0;
+          return Math.max(0, (dv.getTime() - o.getTime()) / (1000 * 60 * 60 * 24));
+        });
+        const avg = diffs.length ? (diffs.reduce((a: number, x: number) => a + x, 0) / diffs.length) : 0;
+        setAvgLeadDays(Math.round(avg * 10) / 10);
+      })
+      .catch(() => { if (!mounted) return; setAvgLeadDays(0); });
     return () => { mounted = false; };
   }, []);
 
@@ -243,11 +277,12 @@ export default function Admin() {
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Pending Approvals</p>
-                  <p className="text-3xl font-bold text-warning">{pendingApprovals}</p>
+                  <p className="text-sm text-muted-foreground">Quality Pass Rate</p>
+                  <p className="text-3xl font-bold text-success">{qualityPassRate.toFixed(1)}%</p>
+                  <p className="text-xs text-muted-foreground">this week</p>
                 </div>
-                <div className="w-12 h-12 rounded-xl bg-warning/10 flex items-center justify-center">
-                  <AlertTriangle className="w-6 h-6 text-warning" />
+                <div className="w-12 h-12 rounded-xl bg-success/10 flex items-center justify-center">
+                  <CheckCircle2 className="w-6 h-6 text-success" />
                 </div>
               </div>
             </CardContent>
@@ -257,11 +292,12 @@ export default function Admin() {
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Avg. Rating</p>
-                  <p className="text-3xl font-bold text-foreground">4.5</p>
+                  <p className="text-sm text-muted-foreground">Avg. Lead Time</p>
+                  <p className="text-3xl font-bold text-foreground">{avgLeadDays.toFixed(1)}d</p>
+                  <p className="text-xs text-muted-foreground">order to delivery</p>
                 </div>
-                <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center">
-                  <TrendingUp className="w-6 h-6 text-accent" />
+                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items_center justify_center">
+                  <Clock className="w-6 h-6 text-primary" />
                 </div>
               </div>
             </CardContent>

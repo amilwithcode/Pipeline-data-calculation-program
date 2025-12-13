@@ -107,6 +107,9 @@ def _queue_append(key: str, row: dict) -> bool:
 
 def _products_fetch() -> dict:
     items = _rest("pipeline_products", "GET") or []
+    if not items:
+        q = _read_json(QUEUE_FILE)
+        items = list(q.get("products") or [])
     out = {}
     for row in items:
         pid = str(row.get("id") or row.get("pid") or "")
@@ -114,7 +117,7 @@ def _products_fetch() -> dict:
             continue
         out[pid] = {
             "pipeline_name": row.get("pipeline_name"),
-            "pipeline_stock": row.get("pipeline_stock"),
+            "pipeline_stock": int(row.get("pipeline_stock", 0) or 0),
         }
     return out
 

@@ -13,7 +13,12 @@ const Materials = () => {
     let mounted = true;
     fetch('/api/products')
       .then(r => r.json())
-      .then(d => { if (mounted) setProducts(Array.isArray(d) ? d : []); })
+      .then(d => {
+        if (!mounted) return;
+        const arr = Array.isArray(d) ? d : [];
+        const mapped = arr.map((p: any) => ({ id: String(p.id), name: p.name ?? p.pipeline_name ?? '', stock: Number(p.stock ?? p.pipeline_stock ?? 0) }));
+        setProducts(mapped);
+      })
       .catch(() => { if (mounted) setProducts([]); });
     return () => { mounted = false; };
   }, []);
