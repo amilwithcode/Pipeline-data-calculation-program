@@ -3,7 +3,7 @@ import { LogisticsTracker } from '@/src/components/dashboard/LogisticsTracker';
 
 const Logistics = () => {
   return (
-    <DashboardLayout title="Logistics" subtitle="Shipment tracking & delivery management">
+    <DashboardLayout title="Logistika" subtitle="Göndəriş izlənməsi və çatdırılma idarəetməsi">
       <LogisticsTracker />
     </DashboardLayout>
   );

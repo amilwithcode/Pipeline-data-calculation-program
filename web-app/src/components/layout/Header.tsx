@@ -77,7 +77,7 @@ export const Header = ({ title, subtitle }: HeaderProps) => {
         <div className="relative hidden md:block">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input 
-            placeholder="Search..." 
+            placeholder="Axtarış..." 
             className="w-64 pl-10 bg-secondary/50 border-border focus:bg-secondary"
           />
         </div>
@@ -152,7 +152,7 @@ export const Header = ({ title, subtitle }: HeaderProps) => {
         {/* Live Indicator */}
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-success/10 border border-success/30">
           <span className="w-2 h-2 rounded-full bg-success pulse-dot" />
-          <span className="text-xs font-medium text-success">Live</span>
+          <span className="text-xs font-medium text-success">Canlı</span>
         </div>
 
         <div className="flex items-center gap-2">
@@ -162,7 +162,7 @@ export const Header = ({ title, subtitle }: HeaderProps) => {
           </Button>
           <Button variant="outline" className="gap-2" onClick={logout}>
             <LogOut className="w-4 h-4" />
-            Logout
+            Çıxış
           </Button>
         </div>
       </div>

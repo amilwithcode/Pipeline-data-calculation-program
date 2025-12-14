@@ -1,4 +1,5 @@
 "use client";
+import { Suspense } from "react";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
@@ -31,9 +32,11 @@ type DashboardData = {
   risks: { supply_chain: number; quality: number; delivery: number; production: number };
   inventory: { total_products: number; low_stock: number };
   products: { id: string; name: string; stock: number }[];
+  suppliers_count?: number;
+  results_count?: number;
 };
 
-export default function Home() {
+function HomeContent() {
   const [view, setView] = useState<
     | "dashboard"
     | "alerts"
@@ -52,9 +55,26 @@ export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [dash, setDash] = useState<DashboardData | null>(null);
   const [products, setProducts] = useState<any[]>([]);
+  const [productsSearch, setProductsSearch] = useState<string>('');
+  const [productsSortBy, setProductsSortBy] = useState<'id'|'name'|'stock'>('id');
+  const [productsSortDir, setProductsSortDir] = useState<'asc'|'desc'>('asc');
+  const [productsPage, setProductsPage] = useState<number>(1);
+  const [productsPageSize, setProductsPageSize] = useState<number>(10);
+  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
+  const [productsExportPageOnly, setProductsExportPageOnly] = useState<boolean>(false);
+  const [ordersSearch, setOrdersSearch] = useState<string>('');
+  const [ordersStatus, setOrdersStatus] = useState<string>('all');
+  const [ordersFromDate, setOrdersFromDate] = useState<string>('');
+  const [ordersToDate, setOrdersToDate] = useState<string>('');
+  const [suppliersSearch, setSuppliersSearch] = useState<string>('');
+  const [suppliersSortBy, setSuppliersSortBy] = useState<'name'|'company'|'rating'|'delivery'|'quality'|'on_time'|'fulfillment'>('name');
+  const [suppliersSortDir, setSuppliersSortDir] = useState<'asc'|'desc'>('asc');
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [confirmations, setConfirmations] = useState<any[]>([]);
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const [editingProductName, setEditingProductName] = useState<string>('');
+  const [editingProductStock, setEditingProductStock] = useState<number>(0);
   const [searchTerm, setSearchTerm] = useState("");
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -64,6 +84,10 @@ export default function Home() {
   const [inviting, setInviting] = useState(false);
   const [supplierProfileOpen, setSupplierProfileOpen] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<any | null>(null);
+  const [supplierEditOpen, setSupplierEditOpen] = useState(false);
+  const [editSupplier, setEditSupplier] = useState<any | null>(null);
+  const [userEditOpen, setUserEditOpen] = useState(false);
+  const [editUser, setEditUser] = useState<any | null>(null);
   
   const { toast } = useToast();
   const router = useRouter();
@@ -161,34 +185,64 @@ export default function Home() {
       }
     } catch {}
     loadDashboard();
-    const t = setInterval(loadDashboard, 15000);
-    return () => clearInterval(t);
+    let t: any = null;
+    try {
+      const es = new EventSource('http://127.0.0.1:8000/api/events');
+      es.onmessage = (ev) => {
+        try {
+          const d = JSON.parse(ev.data);
+          setDash(d);
+          setProducts(Array.isArray(d?.products) ? d.products : []);
+        } catch {}
+      };
+      es.onerror = () => {
+        try { es.close(); } catch {}
+        t = setInterval(loadDashboard, 15000);
+      };
+      return () => { try { es.close(); } catch {}; if (t) clearInterval(t); };
+    } catch {
+      t = setInterval(loadDashboard, 15000);
+      return () => { if (t) clearInterval(t); };
+    }
   }, [searchParams, router, loadDashboard]);
 
   useEffect(() => {
-    if (view === "materials") loadSupplier();
+    if (view === "materials" || view === "admin") loadSupplier();
     if (view === "admin") loadAdmin();
   }, [view, loadSupplier, loadAdmin]);
+
+  useEffect(() => {
+    let mounted = true;
+    if (!supplierProfileOpen || !selectedSupplier) return;
+    const sid = selectedSupplier.id ? String(selectedSupplier.id) : undefined;
+    const sname = selectedSupplier.company || selectedSupplier.name;
+    const qs = sid ? `supplier_id=${encodeURIComponent(sid)}` : `supplier=${encodeURIComponent(sname)}`;
+    fetch(`/api/orders?${qs}`)
+      .then(r => r.json())
+      .then(d => { if (!mounted) return; setSelectedSupplier((prev: any) => ({ ...(prev||{}), orders: Array.isArray(d?.orders)? d.orders : [] })); })
+      .catch(() => { if (!mounted) return; setSelectedSupplier((prev: any) => ({ ...(prev||{}), orders: [] })); });
+    return () => { mounted = false; };
+  }, [supplierProfileOpen, selectedSupplier]);
 
   if (!mounted) {
     return <div className="min-h-screen p-4" suppressHydrationWarning>Yüklənir...</div>;
   }
-  const title = view === "dashboard" ? "Dashboard" : view === "production" ? "Production" : view === "materials" ? "Raw Materials" : view === "quality" ? "Quality Control" : view === "logistics" ? "Logistics" : view === "suppliers" ? "Suppliers" : view === "alerts" ? "Alerts" : view === "performance" ? "Performance" : view === "settings" ? "Settings" : view === "inventory" ? "Inventory" : view === "admin" ? "Admin" : view === "not_found" ? "Səhifə tapılmadı" : "Authentication";
-  const subtitle = view === "dashboard" ? "Pipeline overview & KPIs" : view === "production" ? "Manufacturing stages & output monitoring" : view === "materials" ? "Inventory & supply tracking" : view === "quality" ? "Test results & compliance tracking" : view === "logistics" ? "Shipment tracking & delivery management" : view === "suppliers" ? "Vendor management & performance" : view === "alerts" ? "System notifications & warnings" : view === "performance" ? "KPIs & risk assessment" : view === "settings" ? "System configuration & preferences" : view === "inventory" ? "Stock levels & products" : view === "admin" ? "Management & approvals" : view === "not_found" ? "Düzgün URL və ya view parametri tələb olunur" : "Login / Register";
+  const title = view === "dashboard" ? "Panel" : view === "production" ? "İstehsal" : view === "materials" ? "Xammal" : view === "quality" ? "Keyfiyyət Nəzarəti" : view === "logistics" ? "Logistika" : view === "suppliers" ? "Təchizatçılar" : view === "alerts" ? "Bildirişlər" : view === "performance" ? "Performans" : view === "settings" ? "Ayarlar" : view === "inventory" ? "Anbar" : view === "admin" ? "Admin" : view === "not_found" ? "Səhifə tapılmadı" : "Giriş / Qeydiyyat";
+  const subtitle = view === "dashboard" ? "Boru kəməri icmalı və KPI-lar" : view === "production" ? "İstehsal mərhələləri və çıxışın izlənməsi" : view === "materials" ? "Anbar və təchizat izlənməsi" : view === "quality" ? "Test nəticələri və uyğunluğun izlənməsi" : view === "logistics" ? "Göndəriş izlənməsi və çatdırılma idarəetməsi" : view === "suppliers" ? "Satıcı idarəetməsi və performans" : view === "alerts" ? "Sistem bildirişləri və xəbərdarlıqlar" : view === "performance" ? "KPI-lar və risk qiymətləndirilməsi" : view === "settings" ? "Sistem konfiqurasiyası və seçimlər" : view === "inventory" ? "Stok səviyyələri və məhsullar" : view === "admin" ? "İdarəetmə və təsdiqlər" : view === "not_found" ? "Düzgün URL və ya view parametri tələb olunur" : "Giriş / Qeydiyyat";
 
   
 
   const roleConfig: any = {
     admin: { label: 'Admin', color: 'bg-destructive/20 text-destructive border-destructive/30' },
-    supplier: { label: 'Supplier', color: 'bg-primary/20 text-primary border-primary/30' },
-    viewer: { label: 'Viewer', color: 'bg-muted text-muted-foreground border-border' },
+    supplier: { label: 'Təchizatçı', color: 'bg-primary/20 text-primary border-primary/30' },
+    viewer: { label: 'İzləyici', color: 'bg-muted text-muted-foreground border-border' },
   };
 
   const statusConfig: any = {
-    active: { label: 'Active', icon: CheckCircle2, color: 'bg-success/20 text-success border-success/30' },
-    pending: { label: 'Pending', icon: Clock, color: 'bg-warning/20 text-warning border-warning/30' },
-    suspended: { label: 'Suspended', icon: XCircle, color: 'bg-destructive/20 text-destructive border-destructive/30' },
-    inactive: { label: 'Inactive', icon: XCircle, color: 'bg-muted text-muted-foreground border-border' },
+    active: { label: 'Aktiv', icon: CheckCircle2, color: 'bg-success/20 text-success border-success/30' },
+    pending: { label: 'Gözləyir', icon: Clock, color: 'bg-warning/20 text-warning border-warning/30' },
+    suspended: { label: 'Dayandırılıb', icon: XCircle, color: 'bg-destructive/20 text-destructive border-destructive/30' },
+    inactive: { label: 'Qeyri-aktiv', icon: XCircle, color: 'bg-muted text-muted-foreground border-border' },
   };
 
   const filteredUsers = users.filter((u: any) =>
@@ -207,51 +261,59 @@ export default function Home() {
         <div className="grid grid-cols-1 gap-6">
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-6">
             <StatCard
-              title="Daily Production"
+              title="Günlük istehsal"
               value={(dash?.products || []).reduce((a: number, p: any) => a + (p.stock ?? 0), 0)}
               icon={Factory}
               trend={{ value: 0, isPositive: true }}
-              subtitle="units manufactured"
+              subtitle="istehsal edilən vahidlər"
               variant="primary"
             />
             <StatCard
-              title="Raw Materials"
+              title="Xammal"
               value={dash?.inventory.total_products ?? 0}
               icon={Package}
               trend={{ value: 0, isPositive: false }}
-              subtitle="in inventory"
+              subtitle="anbarda"
               variant="warning"
             />
             <StatCard
-              title="Active Shipments"
+              title="Aktiv göndərişlər"
               value={(dash?.products || []).filter((p: any) => (p.stock ?? 0) > 0).length}
               icon={Truck}
               trend={{ value: 0, isPositive: true }}
-              subtitle="in transit"
+              subtitle="yolda"
               variant="success"
             />
             <StatCard
-              title="Active Alerts"
+              title="Aktiv bildirişlər"
               value={dash?.alerts.length ?? 0}
               icon={AlertTriangle}
               trend={{ value: 0, isPositive: false }}
-              subtitle="requiring attention"
+              subtitle="diqqət tələb edir"
               variant="danger"
             />
             <StatCard
-              title="Quality Pass Rate"
+              title="Keyfiyyət keçmə faizi"
               value={`${Math.max(0, 100 - (dash?.risks.quality ?? 0)).toFixed(1)}%`}
               icon={CheckCircle2}
               trend={{ value: 0, isPositive: true }}
-              subtitle="this week"
+              subtitle="bu həftə"
               variant="success"
             />
             <StatCard
-              title="Avg. Lead Time"
+              title="Orta çatdırılma müddəti"
               value={`${(((dash?.risks.delivery ?? 0) / 10) || 4.2).toFixed(1)}d`}
               icon={Timer}
               trend={{ value: 0, isPositive: true }}
-              subtitle="order to delivery"
+              subtitle="sifarişdən çatdırılmaya"
+              variant="default"
+            />
+            <StatCard
+              title="Yaradılmış nəticələr"
+              value={dash?.results_count ?? 0}
+              icon={Users}
+              trend={{ value: 0, isPositive: true }}
+              subtitle="cəmi"
               variant="default"
             />
           </div>
@@ -272,7 +334,7 @@ export default function Home() {
           <p className="text-lg font-semibold text-foreground mb-2">Səhifə tapılmadı</p>
           <p className="text-muted-foreground mb-6">Düzgün URL və ya '?view=' parametri əlavə edin</p>
           <div className="flex items-center justify-center gap-2">
-            <Button variant="outline" onClick={() => router.push('/?view=dashboard')}>Dashboard</Button>
+            <Button variant="outline" onClick={() => router.push('/?view=dashboard')}>Panel</Button>
             <Button onClick={() => router.push('/?view=admin')}>Admin</Button>
           </div>
         </div>
@@ -294,13 +356,13 @@ export default function Home() {
       {view === "materials" && (
         <>
           <div className="data-grid">
-            <StatCard title="Steel Coils" value={`${(products||[]).reduce((a,p)=>a + (p.stock ?? 0),0)} kg`} icon={Package} variant="primary" subtitle="High carbon steel" />
-            <StatCard title="Alloy Stock" value={`0 kg`} icon={Package} variant="success" subtitle="Grade A alloys" />
-            <StatCard title="Pending Delivery" value={`0 kg`} icon={Truck} variant="warning" subtitle="ETA: —" />
-            <StatCard title="Low Stock Alerts" value={`${0}`} icon={AlertTriangle} variant="danger" subtitle="Items below threshold" />
+            <StatCard title="Polad rulonlar" value={`${(products||[]).reduce((a,p)=>a + (p.stock ?? 0),0)} kg`} icon={Package} variant="primary" subtitle="Yüksək karbonlu polad" />
+            <StatCard title="Alaşıq ehtiyatı" value={`0 kg`} icon={Package} variant="success" subtitle="A sinfi alaşıqlar" />
+            <StatCard title="Gözlənilən çatdırılma" value={`0 kg`} icon={Truck} variant="warning" subtitle="Gözlənilən vaxt: —" />
+            <StatCard title="Aşağı stok xəbərdarlıqları" value={`${0}`} icon={AlertTriangle} variant="danger" subtitle="Həddən aşağı olanlar" />
           </div>
           <Card className="glass-card mt-6">
-            <CardHeader><CardTitle>Material Inventory</CardTitle></CardHeader>
+            <CardHeader><CardTitle>Material inventarı</CardTitle></CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -352,19 +414,19 @@ export default function Home() {
         <div className="max-w-2xl">
           <div className="glass-card p-6 space-y-6">
             <div>
-              <h3 className="text-lg font-semibold text-foreground mb-4">Notifications</h3>
+              <h3 className="text-lg font-semibold text-foreground mb-4">Bildirişlər</h3>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label>Email Alerts</Label>
-                    <p className="text-sm text-muted-foreground">Receive critical alerts via email</p>
+                    <Label>Email xəbərdarlıqları</Label>
+                    <p className="text-sm text-muted-foreground">Kritik xəbərdarlıqları email ilə qəbul et</p>
                   </div>
                   <Switch checked={emailAlerts} onCheckedChange={setEmailAlerts} />
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label>SMS Notifications</Label>
-                    <p className="text-sm text-muted-foreground">Get SMS for urgent issues</p>
+                    <Label>SMS bildirişləri</Label>
+                    <p className="text-sm text-muted-foreground">Təcili hallar üçün SMS al</p>
                   </div>
                   <Switch checked={smsAlerts} onCheckedChange={setSmsAlerts} />
                 </div>
@@ -372,14 +434,14 @@ export default function Home() {
             </div>
 
             <div className="border-t border-border pt-6">
-              <h3 className="text-lg font-semibold text-foreground mb-4">Thresholds</h3>
+              <h3 className="text-lg font-semibold text-foreground mb-4">Hədlər</h3>
               <div className="grid gap-4">
                 <div>
-                  <Label>Low Stock Alert (kg)</Label>
+                  <Label>Aşağı stok xəbərdarlığı (kg)</Label>
                   <Input type="number" value={lowStockThreshold} onChange={(e)=>setLowStockThreshold(Number(e.target.value))} className="mt-2" />
                 </div>
                 <div>
-                  <Label>Quality Pass Rate Target (%)</Label>
+                  <Label>Keyfiyyət keçmə hədəfi (%)</Label>
                   <Input type="number" value={qualityTarget} onChange={(e)=>setQualityTarget(Number(e.target.value))} className="mt-2" />
                 </div>
               </div>
@@ -388,7 +450,7 @@ export default function Home() {
             <Button className="w-full" onClick={() => {
               const payload = { emailAlerts, smsAlerts, lowStockThreshold, qualityTarget };
               if (typeof window !== 'undefined') window.localStorage.setItem('pf_settings', JSON.stringify(payload));
-            }}>Save Settings</Button>
+            }}>Ayarları yadda saxla</Button>
           </div>
         </div>
       )}
@@ -462,7 +524,7 @@ export default function Home() {
               <CardContent className="p-5">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">Total Users</p>
+                    <p className="text-sm text-muted-foreground">Ümumi istifadəçi sayı</p>
                     <p className="text-3xl font-bold text-foreground">{users.length}</p>
                   </div>
                   <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -475,8 +537,8 @@ export default function Home() {
               <CardContent className="p-5">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">Active Suppliers</p>
-                    <p className="text-3xl font-bold text-foreground">{suppliers.length}</p>
+                    <p className="text-sm text-muted-foreground">Aktiv təchizatçılar</p>
+                    <p className="text-3xl font-bold text-foreground">{dash?.suppliers_count ?? suppliers.length}</p>
                   </div>
                   <div className="w-12 h-12 rounded-xl bg-success/10 flex items-center justify-center">
                     <Package className="w-6 h-6 text-success" />
@@ -488,7 +550,7 @@ export default function Home() {
               <CardContent className="p-5">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">Pending Approvals</p>
+                    <p className="text-sm text-muted-foreground">Gözləyən təsdiqlər</p>
                     <p className="text-3xl font-bold text-warning">{pendingApprovals}</p>
                   </div>
                   <div className="w-12 h-12 rounded-xl bg-warning/10 flex items-center justify-center">
@@ -501,7 +563,7 @@ export default function Home() {
               <CardContent className="p-5">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">Avg. Rating</p>
+                    <p className="text-sm text-muted-foreground">Orta reytinq</p>
                     <p className="text-3xl font-bold text-foreground">{
                       suppliers.length
                         ? (Math.round((suppliers.reduce((a:number,s:any)=>a + Number(s.rating ?? 0),0) / suppliers.length) * 10) / 10)
@@ -518,12 +580,12 @@ export default function Home() {
 
           <Card className="glass-card">
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Management</CardTitle>
+              <CardTitle>İdarəetmə</CardTitle>
               <div className="flex items-center gap-3">
                 <div className="relative">
                   <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
-                    placeholder="Search..."
+                    placeholder="Axtarış..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-9 w-64 bg-secondary/50"
@@ -534,7 +596,7 @@ export default function Home() {
                 </Button>
                 <Button className="gap-2" onClick={() => setInviteOpen(true)}>
                   <UserPlus className="w-4 h-4" />
-                  Invite User
+                  İstifadəçi dəvət et
                 </Button>
               </div>
             </CardHeader>
@@ -554,8 +616,8 @@ export default function Home() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="admin">Admin</SelectItem>
-                        <SelectItem value="supplier">Supplier</SelectItem>
-                        <SelectItem value="viewer">Viewer</SelectItem>
+                        <SelectItem value="supplier">Təchizatçı</SelectItem>
+                        <SelectItem value="viewer">İzləyici</SelectItem>
                       </SelectContent>
                     </Select>
                     {inviteRole === 'supplier' && (
@@ -601,21 +663,43 @@ export default function Home() {
               </Dialog>
               <Tabs defaultValue="users" className="space-y-4">
                 <TabsList>
-                  <TabsTrigger value="users">Users ({users.length})</TabsTrigger>
-                  <TabsTrigger value="suppliers">Suppliers ({suppliers.length})</TabsTrigger>
-                  <TabsTrigger value="pending">Pending ({pendingApprovals})</TabsTrigger>
-                  <TabsTrigger value="products">Products ({products.length})</TabsTrigger>
+                  <TabsTrigger value="users">İstifadəçilər ({users.length})</TabsTrigger>
+                  <TabsTrigger value="suppliers">Təchizatçılar ({suppliers.length})</TabsTrigger>
+                  <TabsTrigger value="pending">Gözləyənlər ({pendingApprovals})</TabsTrigger>
+                  <TabsTrigger value="products">Məhsullar ({products.length})</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="users">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Input placeholder="Axtarış (supplier/company)" value={suppliersSearch} onChange={(e)=>setSuppliersSearch(e.target.value)} />
+                    <Select value={suppliersSortBy} onValueChange={(v)=>setSuppliersSortBy(v as any)}>
+                      <SelectTrigger className="w-44"><SelectValue placeholder="Sıralama meyarı" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="name">Təchizatçı</SelectItem>
+                        <SelectItem value="company">Şirkət</SelectItem>
+                        <SelectItem value="rating">Reytinq</SelectItem>
+                        <SelectItem value="delivery">Çatdırılma göstəricisi</SelectItem>
+                        <SelectItem value="quality">Keyfiyyət göstəricisi</SelectItem>
+                        <SelectItem value="on_time">Vaxtında çatdırılma</SelectItem>
+                        <SelectItem value="fulfillment">İcra</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select value={suppliersSortDir} onValueChange={(v)=>setSuppliersSortDir(v as any)}>
+                      <SelectTrigger className="w-28"><SelectValue placeholder="Sıralama istiqaməti" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="asc">Artan</SelectItem>
+                        <SelectItem value="desc">Azalan</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>User</TableHead>
-                        <TableHead>Role</TableHead>
+                        <TableHead>İstifadəçi</TableHead>
+                        <TableHead>Rol</TableHead>
                         <TableHead>Status</TableHead>
-                        <TableHead>Company</TableHead>
-                        <TableHead>Last Active</TableHead>
+                        <TableHead>Şirkət</TableHead>
+                        <TableHead>Son aktivlik</TableHead>
                         <TableHead className="w-12"></TableHead>
                       </TableRow>
                     </TableHeader>
@@ -656,19 +740,27 @@ export default function Home() {
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
-                                  <DropdownMenuItem>View Profile</DropdownMenuItem>
-                                  <DropdownMenuItem>Edit User</DropdownMenuItem>
+                                  <DropdownMenuItem>Profili göstər</DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => { setEditUser(user); setUserEditOpen(true); }}>İstifadəçini redaktə et</DropdownMenuItem>
                                   <DropdownMenuItem>
                                     <Mail className="w-4 h-4 mr-2" />
-                                    Send Email
+                                    Email göndər
                                   </DropdownMenuItem>
                                   {user.status === 'pending' && (
-                                    <DropdownMenuItem onClick={() => toast({ title: 'Approved', description: 'User has been approved' })}>
+                                    <DropdownMenuItem onClick={() => toast({ title: 'Təsdiq edildi', description: 'İstifadəçi təsdiqləndi' })}>
                                       <CheckCircle2 className="w-4 h-4 mr-2 text-success" />
-                                      Approve
+                                      Təsdiq et
                                     </DropdownMenuItem>
                                   )}
-                                  <DropdownMenuItem className="text-destructive">Suspend User</DropdownMenuItem>
+                                  <DropdownMenuItem className="text-destructive" onClick={async()=>{
+                                    try{
+                                      await fetch(`/api/users/${encodeURIComponent(String(user.id))}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'suspended' }) });
+                                      const u = await fetch('/api/users').then(r=>r.json());
+                                      const list = Array.isArray(u) ? u.map((x:any)=>({ id:String(x.id ?? x.email ?? Math.random()), name:String(x.name ?? x.full_name ?? '').trim() || undefined, email:String(x.email ?? ''), role:String(x.role ?? 'viewer'), status:String(x.status ?? 'active'), company:x.company ?? x.company_name ?? undefined, lastActive:x.last_active ?? x.lastActive ?? undefined })) : [];
+                                      setUsers(list);
+                                      toast({ title:'Dayandırıldı', description:'İstifadəçi statusu yeniləndi' });
+                                    }catch{}
+                                  }}>İstifadəçini dayandır</DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             </TableCell>
@@ -678,18 +770,74 @@ export default function Home() {
                     </TableBody>
                   </Table>
                 </TabsContent>
+                <Dialog open={userEditOpen} onOpenChange={(o)=>{ setUserEditOpen(o); if(!o) setEditUser(null); }}>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>İstifadəçi məlumatları</DialogTitle>
+                      <DialogDescription>Ad, email, rol və statusu yenilə</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-3">
+                      <Input placeholder="Ad" value={String(editUser?.name ?? '')} onChange={(e)=>setEditUser((s:any)=>({...(s||{}), name: e.target.value}))} />
+                      <Input placeholder="Email" value={String(editUser?.email ?? '')} onChange={(e)=>setEditUser((s:any)=>({...(s||{}), email: e.target.value}))} />
+                      <Select value={String(editUser?.role ?? 'viewer')} onValueChange={(v)=>setEditUser((s:any)=>({...(s||{}), role: v}))}>
+                        <SelectTrigger><SelectValue placeholder="Rol" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="admin">admin</SelectItem>
+                          <SelectItem value="supplier">təchizatçı</SelectItem>
+                          <SelectItem value="viewer">izləyici</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Select value={String(editUser?.status ?? 'active')} onValueChange={(v)=>setEditUser((s:any)=>({...(s||{}), status: v}))}>
+                        <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="active">aktiv</SelectItem>
+                          <SelectItem value="pending">gözləyir</SelectItem>
+                          <SelectItem value="suspended">dayandırılıb</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={()=>setUserEditOpen(false)}>Bağla</Button>
+                      <Button onClick={async()=>{
+                        if(!editUser?.id) return;
+                        await fetch(`/api/users/${encodeURIComponent(String(editUser.id))}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: editUser.name, email: editUser.email, role: editUser.role, status: editUser.status }) });
+                        setUserEditOpen(false);
+                        const u = await fetch('/api/users').then(r=>r.json());
+                        const list = Array.isArray(u) ? u.map((x:any)=>({ id:String(x.id ?? x.email ?? Math.random()), name:String(x.name ?? x.full_name ?? '').trim() || undefined, email:String(x.email ?? ''), role:String(x.role ?? 'viewer'), status:String(x.status ?? 'active'), company:x.company ?? x.company_name ?? undefined, lastActive:x.last_active ?? x.lastActive ?? undefined })) : [];
+                        setUsers(list);
+                      }}>Yadda saxla</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
 
                 <TabsContent value="suppliers">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Supplier</TableHead>
-                        <TableHead>Company</TableHead>
+                        <TableHead>Təchizatçı</TableHead>
+                        <TableHead>Şirkət</TableHead>
+                        <TableHead>Vaxtında çatdırılma</TableHead>
+                        <TableHead>Sifariş icrası</TableHead>
                         <TableHead className="w-12"></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredSuppliers.map((supplier: any) => (
+                      {filteredSuppliers
+                        .filter((s: any) => (String(s.name||'').toLowerCase().includes(suppliersSearch.toLowerCase())) || (String(s.company||'').toLowerCase().includes(suppliersSearch.toLowerCase())))
+                        .slice()
+                        .sort((a:any,b:any)=>{
+                          const pick = (x:any) => suppliersSortBy==='name' ? String(x.name||'') :
+                                              suppliersSortBy==='company' ? String(x.company||'') :
+                                              suppliersSortBy==='rating' ? Number(x.rating||0) :
+                                              suppliersSortBy==='delivery' ? Number(x.delivery_score ?? x.deliveryScore ?? 0) :
+                                              suppliersSortBy==='quality' ? Number(x.quality_score ?? x.qualityScore ?? 0) :
+                                              suppliersSortBy==='on_time' ? Number(x.on_time_delivery ?? 0) :
+                                              Number(x.order_fulfillment ?? 0);
+                          const av = pick(a), bv = pick(b);
+                          if (typeof av === 'number' && typeof bv === 'number') return suppliersSortDir==='asc' ? av-bv : bv-av;
+                          return suppliersSortDir==='asc' ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
+                        })
+                        .map((supplier: any) => (
                         <TableRow key={supplier.id} className="table-row-hover">
                           <TableCell>
                             <div className="flex items-center gap-3">
@@ -703,27 +851,99 @@ export default function Home() {
                             </div>
                           </TableCell>
                           <TableCell className="text-muted-foreground">{supplier.company || '—'}</TableCell>
+                          <TableCell className="text-muted-foreground">{typeof supplier.on_time_delivery !== 'undefined' ? `${supplier.on_time_delivery}%` : '—'}</TableCell>
+                          <TableCell className="text-muted-foreground">{typeof supplier.order_fulfillment !== 'undefined' ? `${supplier.order_fulfillment}%` : '—'}</TableCell>
                           <TableCell>
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <Button variant="ghost" size="icon"><MoreVertical className="w-4 h-4" /></Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onClick={() => { setSelectedSupplier(supplier); setSupplierProfileOpen(true); }}>
-                                    View Profile
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => toast({ title: 'Approved', description: 'Supplier has been approved' })}>
-                                    <CheckCircle2 className="w-4 h-4 mr-2 text-success" />Approve
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem className="text-destructive">Deactivate</DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
+                          <DropdownMenuItem onClick={() => { setSelectedSupplier(supplier); setSupplierProfileOpen(true); }}>
+                            Profili göstər
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => { setEditSupplier(supplier); setSupplierEditOpen(true); }}>
+                            Təchizatçını redaktə et
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={async () => {
+                            try {
+                              await fetch(`/api/suppliers/${encodeURIComponent(String(supplier.id))}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'active' }) });
+                              await loadAdmin();
+                              toast({ title: 'Təsdiq edildi', description: 'Təchizatçı statusu yeniləndi' });
+                            } catch {}
+                          }}>
+                            <CheckCircle2 className="w-4 h-4 mr-2 text-success" />Təsdiq et
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="text-destructive" onClick={async () => {
+                            try {
+                              await fetch(`/api/suppliers/${encodeURIComponent(String(supplier.id))}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'inactive' }) });
+                              await loadAdmin();
+                              toast({ title: 'Deaktiv edildi', description: 'Təchizatçı statusu yeniləndi' });
+                            } catch {}
+                          }}>Deaktiv et</DropdownMenuItem>
+                          {String(supplier.status)==='inactive' && (
+                            <DropdownMenuItem onClick={async () => {
+                              try {
+                                await fetch(`/api/suppliers/${encodeURIComponent(String(supplier.id))}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'active' }) });
+                                await loadAdmin();
+                                toast({ title: 'Bərpa edildi', description: 'Təchizatçı aktivdir' });
+                              } catch {}
+                            }}>Təchizatçını bərpa et</DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem className="text-destructive" onClick={async () => {
+                            try {
+                              await fetch(`/api/suppliers/${encodeURIComponent(String(supplier.id))}`, { method: 'DELETE' });
+                              await loadAdmin();
+                              toast({ title: 'Silindi', description: 'Təchizatçı silindi' });
+                            } catch {}
+                          }}>Təchizatçını sil</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                            </TableCell>
+                          </TableRow>
                       ))}
                     </TableBody>
                   </Table>
                 </TabsContent>
+                <Dialog open={supplierEditOpen} onOpenChange={(o)=>{ setSupplierEditOpen(o); if(!o) setEditSupplier(null); }}>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Təchizatçı məlumatları</DialogTitle>
+                      <DialogDescription>Şirkət, ad, email və statusu yenilə</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-3">
+                      <Input placeholder="Şirkət" value={String(editSupplier?.company ?? '')} onChange={(e)=>setEditSupplier((s:any)=>({...(s||{}), company: e.target.value}))} />
+                      <Input placeholder="Ad" value={String(editSupplier?.name ?? '')} onChange={(e)=>setEditSupplier((s:any)=>({...(s||{}), name: e.target.value}))} />
+                      <Input placeholder="Email" value={String(editSupplier?.email ?? '')} onChange={(e)=>setEditSupplier((s:any)=>({...(s||{}), email: e.target.value}))} />
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                        <Input placeholder="Reytinq" type="number" value={String(editSupplier?.rating ?? '')} onChange={(e)=>setEditSupplier((s:any)=>({...(s||{}), rating: Number(e.target.value||0)}))} />
+                        <Input placeholder="Çatdırılma göstəricisi" type="number" value={String(editSupplier?.delivery_score ?? editSupplier?.deliveryScore ?? '')} onChange={(e)=>setEditSupplier((s:any)=>({...(s||{}), delivery_score: Number(e.target.value||0)}))} />
+                        <Input placeholder="Keyfiyyət göstəricisi" type="number" value={String(editSupplier?.quality_score ?? editSupplier?.qualityScore ?? '')} onChange={(e)=>setEditSupplier((s:any)=>({...(s||{}), quality_score: Number(e.target.value||0)}))} />
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <Input placeholder="Vaxtında çatdırılma (%)" type="number" value={String(editSupplier?.on_time_delivery ?? '')} onChange={(e)=>setEditSupplier((s:any)=>({...(s||{}), on_time_delivery: Number(e.target.value||0)}))} />
+                        <Input placeholder="Sifariş icrası (%)" type="number" value={String(editSupplier?.order_fulfillment ?? '')} onChange={(e)=>setEditSupplier((s:any)=>({...(s||{}), order_fulfillment: Number(e.target.value||0)}))} />
+                      </div>
+                      <Select value={String(editSupplier?.status ?? 'active')} onValueChange={(v)=>setEditSupplier((s:any)=>({...(s||{}), status: v}))}>
+                        <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="active">aktiv</SelectItem>
+                          <SelectItem value="pending">gözləyir</SelectItem>
+                          <SelectItem value="inactive">qeyri-aktiv</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={()=>setSupplierEditOpen(false)}>Bağla</Button>
+                      <Button onClick={async()=>{
+                        if(!editSupplier?.id) return;
+                        await fetch(`/api/suppliers/${encodeURIComponent(String(editSupplier.id))}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ company: editSupplier.company, name: editSupplier.name, email: editSupplier.email, status: editSupplier.status, rating: editSupplier.rating, delivery_score: editSupplier.delivery_score, quality_score: editSupplier.quality_score, on_time_delivery: editSupplier.on_time_delivery, order_fulfillment: editSupplier.order_fulfillment }) });
+                        setSupplierEditOpen(false);
+                        await loadAdmin();
+                      }}>Yadda saxla</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
 
                 <TabsContent value="pending">
                   <div className="space-y-4">
@@ -735,15 +955,15 @@ export default function Home() {
                           </div>
                           <div>
                             <p className="font-medium text-foreground">{item.supplier}</p>
-                            <p className="text-sm text-muted-foreground">Pipe: {item.requested_pipe_id}</p>
+                            <p className="text-sm text-muted-foreground">Boru: {item.requested_pipe_id}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
                           <Button variant="outline" size="sm" className="text-destructive">
-                            <XCircle className="w-4 h-4 mr-1" />Reject
+                            <XCircle className="w-4 h-4 mr-1" />Rədd et
                           </Button>
-                          <Button size="sm" onClick={() => toast({ title: 'Approved', description: 'Approval recorded' })}>
-                            <CheckCircle2 className="w-4 h-4 mr-1" />Approve
+                          <Button size="sm" onClick={() => toast({ title: 'Təsdiq edildi', description: 'Təsdiq qeyd edildi' })}>
+                            <CheckCircle2 className="w-4 h-4 mr-1" />Təsdiq et
                           </Button>
                         </div>
                       </div>
@@ -751,7 +971,7 @@ export default function Home() {
                     {!confirmations.length && (
                       <div className="text-center py-12 text-muted-foreground">
                         <CheckCircle2 className="w-12 h-12 mx-auto mb-4 text-success" />
-                        <p>No pending approvals</p>
+                        <p>Gözləyən təsdiq yoxdur</p>
                       </div>
                     )}
                   </div>
@@ -768,18 +988,159 @@ export default function Home() {
                     <Card className="glass-card">
                       <CardHeader><CardTitle>Mövcud məhsullar</CardTitle></CardHeader>
                       <CardContent>
+                        <div className="flex gap-2 mb-3">
+                          <Input placeholder="Axtarış (ID və ya ad)" value={productsSearch} onChange={(e)=>setProductsSearch(e.target.value)} />
+                          <Select value={productsSortBy} onValueChange={(v)=>setProductsSortBy(v as any)}>
+                            <SelectTrigger className="w-40"><SelectValue placeholder="Sıralama meyarı" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="id">ID</SelectItem>
+                              <SelectItem value="name">Ad</SelectItem>
+                              <SelectItem value="stock">Stok</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Select value={productsSortDir} onValueChange={(v)=>setProductsSortDir(v as any)}>
+                            <SelectTrigger className="w-28"><SelectValue placeholder="Sıralama istiqaməti" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="asc">Artan</SelectItem>
+                              <SelectItem value="desc">Azalan</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Select value={String(productsPageSize)} onValueChange={(v)=>{ setProductsPageSize(Number(v)); setProductsPage(1); }}>
+                            <SelectTrigger className="w-28"><SelectValue placeholder="Səhifə ölçüsü" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="5">5</SelectItem>
+                              <SelectItem value="10">10</SelectItem>
+                              <SelectItem value="20">20</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <div className="flex items-center gap-1">
+                            <input id="exportPageOnly" type="checkbox" checked={productsExportPageOnly} onChange={(e)=>setProductsExportPageOnly(e.currentTarget.checked)} />
+                            <label htmlFor="exportPageOnly" className="text-sm">Yalnız bu səhifəni export et</label>
+                          </div>
+                          <Button variant="outline" onClick={async ()=>{
+                            let view = products
+                              .filter((x:any)=>{
+                                const id = String(x.id||'');
+                                const name = String(x.pipeline_name ?? x.name ?? '');
+                                const q = productsSearch.toLowerCase();
+                                return !q || id.toLowerCase().includes(q) || name.toLowerCase().includes(q);
+                              })
+                              .sort((a:any,b:any)=>{
+                                const av = productsSortBy==='id' ? String(a.id||'') : productsSortBy==='name' ? String(a.pipeline_name ?? a.name ?? '') : Number(a.pipeline_stock ?? a.stock ?? 0);
+                                const bv = productsSortBy==='id' ? String(b.id||'') : productsSortBy==='name' ? String(b.pipeline_name ?? b.name ?? '') : Number(b.pipeline_stock ?? b.stock ?? 0);
+                                if (typeof av === 'number' && typeof bv === 'number') return productsSortDir==='asc' ? av-bv : bv-av;
+                                return productsSortDir==='asc' ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
+                              });
+                            if (productsExportPageOnly) {
+                              view = view.slice((productsPage-1)*productsPageSize, (productsPage-1)*productsPageSize + productsPageSize);
+                            }
+                            const rows = view.map((x:any)=>({ id: x.id, name: x.pipeline_name ?? x.name ?? '', stock: Number(x.pipeline_stock ?? x.stock ?? 0) }));
+                            const csv = ['id,name,stock', ...rows.map(r=>`${r.id},${String(r.name).replace(/,/g,';')},${r.stock}`)].join('\n');
+                            if (typeof window !== 'undefined') {
+                              const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                              const url = URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = 'products_export.csv';
+                              a.click();
+                              URL.revokeObjectURL(url);
+                            }
+                          }}>CSV eksportu</Button>
+                          <Button variant="destructive" onClick={async ()=>{
+                            if (!selectedProducts.size) return;
+                            await Promise.all(Array.from(selectedProducts).map(id => fetch(`/api/products/${encodeURIComponent(id)}`, { method: 'DELETE' })));
+                            setSelectedProducts(new Set());
+                            await loadSupplier();
+                          }} disabled={!selectedProducts.size}>Seçilənləri sil</Button>
+                        </div>
                         <div className="overflow-x-auto">
                           <table className="w-full text-sm">
-                            <thead className="bg-secondary"><tr><th className="p-2 text-left">ID</th><th className="p-2 text-left">Ad</th><th className="p-2 text-left">Stok</th><th className="p-2 text-left">Əməliyyat</th></tr></thead>
+                            <thead className="bg-secondary"><tr><th className="p-2 text-left"><input type="checkbox" onChange={(e)=>{
+                              const checked = e.currentTarget.checked;
+                              const pageItems = products
+                                .filter((x:any)=>{
+                                  const id = String(x.id||'');
+                                  const name = String(x.pipeline_name ?? x.name ?? '');
+                                  const q = productsSearch.toLowerCase();
+                                  return !q || id.toLowerCase().includes(q) || name.toLowerCase().includes(q);
+                                })
+                                .sort((a:any,b:any)=>{
+                                  const av = productsSortBy==='id' ? String(a.id||'') : productsSortBy==='name' ? String(a.pipeline_name ?? a.name ?? '') : Number(a.pipeline_stock ?? a.stock ?? 0);
+                                  const bv = productsSortBy==='id' ? String(b.id||'') : productsSortBy==='name' ? String(b.pipeline_name ?? b.name ?? '') : Number(b.pipeline_stock ?? b.stock ?? 0);
+                                  if (typeof av === 'number' && typeof bv === 'number') return productsSortDir==='asc' ? av-bv : bv-av;
+                                  return productsSortDir==='asc' ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
+                                })
+                                .slice((productsPage-1)*productsPageSize, (productsPage-1)*productsPageSize + productsPageSize)
+                                .map((x:any)=>String(x.id));
+                              const s = new Set<string>(selectedProducts);
+                              if (checked) pageItems.forEach(id=>s.add(String(id))); else pageItems.forEach(id=>s.delete(String(id)));
+                              setSelectedProducts(s);
+                            }} /></th><th className="p-2 text-left">ID</th><th className="p-2 text-left">Ad</th><th className="p-2 text-left">Stok</th><th className="p-2 text-left">Əməliyyat</th></tr></thead>
                             <tbody>
-                              {products.map((x: any) => (
-                                <tr key={x.id} className="border-t border-border"><td className="p-2">{x.id}</td><td className="p-2">{x.pipeline_name ?? x.name}</td><td className="p-2">{x.pipeline_stock ?? x.stock}</td><td className="p-2"><button className="px-2 py-1 border rounded" onClick={async()=>{await fetch(`/api/products/${x.id}`,{method:"DELETE"}); loadSupplier();}}>Sil</button></td></tr>
+                              {products
+                                .filter((x:any)=>{
+                                  const id = String(x.id||'');
+                                  const name = String(x.pipeline_name ?? x.name ?? '');
+                                  const q = productsSearch.toLowerCase();
+                                  return !q || id.toLowerCase().includes(q) || name.toLowerCase().includes(q);
+                                })
+                                .sort((a:any,b:any)=>{
+                                  const av = productsSortBy==='id' ? String(a.id||'') : productsSortBy==='name' ? String(a.pipeline_name ?? a.name ?? '') : Number(a.pipeline_stock ?? a.stock ?? 0);
+                                  const bv = productsSortBy==='id' ? String(b.id||'') : productsSortBy==='name' ? String(b.pipeline_name ?? b.name ?? '') : Number(b.pipeline_stock ?? b.stock ?? 0);
+                                  if (typeof av === 'number' && typeof bv === 'number') return productsSortDir==='asc' ? av-bv : bv-av;
+                                  return productsSortDir==='asc' ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
+                                })
+                                .slice((productsPage-1)*productsPageSize, (productsPage-1)*productsPageSize + productsPageSize)
+                                .map((x: any) => (
+                                <tr key={x.id} className="border-t border-border">
+                                  <td className="p-2"><input type="checkbox" checked={selectedProducts.has(String(x.id))} onChange={(e)=>{
+                                    const s = new Set<string>(selectedProducts);
+                                    const id = String(x.id);
+                                    if (e.currentTarget.checked) s.add(id); else s.delete(id);
+                                    setSelectedProducts(s);
+                                  }} /></td>
+                                  <td className="p-2">{x.id}</td>
+                                  <td className="p-2">
+                                    {editingProductId === String(x.id) ? (
+                                      <input className="border px-2 py-1 rounded w-full" value={editingProductName} onChange={(e)=>setEditingProductName(e.target.value)} />
+                                    ) : (x.pipeline_name ?? x.name)}
+                                  </td>
+                                  <td className="p-2">
+                                    {editingProductId === String(x.id) ? (
+                                      <input className="border px-2 py-1 rounded w-full" type="number" value={editingProductStock} onChange={(e)=>setEditingProductStock(Number(e.target.value||0))} />
+                                    ) : (x.pipeline_stock ?? x.stock)}
+                                  </td>
+                                  <td className="p-2">
+                                    {editingProductId === String(x.id) ? (
+                                      <div className="flex gap-2">
+                                        <button className="px-2 py-1 rounded bg-primary text-primary-foreground" onClick={async()=>{
+                                          await fetch(`/api/products/${x.id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:editingProductName,stock:editingProductStock})});
+                                          setEditingProductId(null);
+                                          await loadSupplier();
+                                        }}>Yadda saxla</button>
+                                        <button className="px-2 py-1 border rounded" onClick={()=>setEditingProductId(null)}>İmtina</button>
+                                      </div>
+                                    ) : (
+                                      <div className="flex gap-2">
+                                        <button className="px-2 py-1 border rounded" onClick={()=>{ setEditingProductId(String(x.id)); setEditingProductName(String(x.pipeline_name ?? x.name ?? '')); setEditingProductStock(Number(x.pipeline_stock ?? x.stock ?? 0)); }}>Düzəliş et</button>
+                                        <button className="px-2 py-1 border rounded" onClick={async()=>{await fetch(`/api/products/${x.id}`,{method:"DELETE"}); loadSupplier();}}>Sil</button>
+                                      </div>
+                                    )}
+                                  </td>
+                                </tr>
                               ))}
                               {!products.length && (
                                 <tr className="border-t border-border"><td className="p-2" colSpan={4}>Məhsul yoxdur</td></tr>
                               )}
                             </tbody>
                           </table>
+                        </div>
+                        <div className="flex items-center justify-between mt-3 text-sm">
+                          <span>Səhifə {productsPage}</span>
+                          <div className="flex gap-2">
+                            <Button variant="outline" size="sm" onClick={()=>setProductsPage(p=>Math.max(1,p-1))} disabled={productsPage===1}>Əvvəl</Button>
+                            <Button variant="outline" size="sm" onClick={()=>setProductsPage(p=>p+1)} disabled={products.length <= productsPage*productsPageSize}>Sonra</Button>
+                          </div>
                         </div>
                       </CardContent>
                     </Card>
@@ -793,7 +1154,7 @@ export default function Home() {
                       <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
                         <Factory className="w-5 h-5 text-primary" />
                       </div>
-                      <span>{selectedSupplier?.company || selectedSupplier?.name || 'Supplier Profile'}</span>
+                      <span>{selectedSupplier?.company || selectedSupplier?.name || 'Təchizatçı Profili'}</span>
                       {selectedSupplier?.status && (
                         <Badge variant="outline" className="ml-2">{String(selectedSupplier.status)}</Badge>
                       )}
@@ -806,81 +1167,198 @@ export default function Home() {
                     <Card className="md:col-span-3">
                       <CardContent className="p-4 flex flex-wrap items-center gap-4 justify-between">
                         <div className="text-center">
-                          <p className="text-xs text-muted-foreground">Rating</p>
+                          <p className="text-xs text-muted-foreground">Reytinq</p>
                           <p className="text-xl font-semibold">{selectedSupplier?.rating ?? '—'}</p>
                         </div>
                         <div className="text-center">
-                          <p className="text-xs text-muted-foreground">Delivery Score</p>
+                          <p className="text-xs text-muted-foreground">Çatdırılma göstəricisi</p>
                           <p className="text-xl font-semibold">{selectedSupplier?.delivery_score ?? '—'}</p>
                         </div>
                         <div className="text-center">
-                          <p className="text-xs text-muted-foreground">Quality Score</p>
+                          <p className="text-xs text-muted-foreground">Keyfiyyət göstəricisi</p>
                           <p className="text-xl font-semibold">{selectedSupplier?.quality_score ?? '—'}</p>
                         </div>
                         <div className="text-center">
-                          <p className="text-xs text-muted-foreground">Active Orders</p>
+                          <p className="text-xs text-muted-foreground">Aktiv sifarişlər</p>
                           <p className="text-xl font-semibold">{selectedSupplier?.active_orders ?? 0}</p>
                         </div>
                         <div className="text-center">
-                          <p className="text-xs text-muted-foreground">Total Orders</p>
+                          <p className="text-xs text-muted-foreground">Ümumi sifarişlər</p>
                           <p className="text-xl font-semibold">{selectedSupplier?.total_orders ?? 0}</p>
                         </div>
                         <div className="text-center">
-                          <p className="text-xs text-muted-foreground">Total Value</p>
+                          <p className="text-xs text-muted-foreground">Ümumi dəyər</p>
                           <p className="text-xl font-semibold">{selectedSupplier?.total_value ? `$${selectedSupplier.total_value}` : '—'}</p>
                         </div>
                       </CardContent>
                     </Card>
 
                     <Card>
-                      <CardHeader><CardTitle>Performance Metrics</CardTitle></CardHeader>
+                      <CardHeader><CardTitle>Performans metrikləri</CardTitle></CardHeader>
                       <CardContent className="space-y-3">
                         <div>
-                          <div className="flex justify-between text-xs mb-1"><span>On-Time Delivery</span><span>{selectedSupplier?.on_time_delivery ?? 0}%</span></div>
+                          <div className="flex justify_between text-xs mb-1"><span>Vaxtında çatdırılma</span><span>{selectedSupplier?.on_time_delivery ?? 0}%</span></div>
                           <Progress value={selectedSupplier?.on_time_delivery ?? 0} />
                         </div>
                         <div>
-                          <div className="flex justify-between text-xs mb-1"><span>Quality Score</span><span>{selectedSupplier?.quality_score ?? 0}%</span></div>
+                          <div className="flex justify-between text-xs mb-1"><span>Keyfiyyət göstəricisi</span><span>{selectedSupplier?.quality_score ?? 0}%</span></div>
                           <Progress value={selectedSupplier?.quality_score ?? 0} />
                         </div>
                         <div>
-                          <div className="flex justify_between text-xs mb-1"><span>Order Fulfillment</span><span>{selectedSupplier?.order_fulfillment ?? 0}%</span></div>
+                          <div className="flex justify_between text-xs mb-1"><span>Sifariş icrası</span><span>{selectedSupplier?.order_fulfillment ?? 0}%</span></div>
                           <Progress value={selectedSupplier?.order_fulfillment ?? 0} />
                         </div>
                         <div>
-                          <div className="flex justify-between text-xs mb-1"><span>Response Rate</span><span>{selectedSupplier?.response_rate ?? 0}%</span></div>
+                          <div className="flex justify-between text-xs mb-1"><span>Cavab faizi</span><span>{selectedSupplier?.response_rate ?? 0}%</span></div>
                           <Progress value={selectedSupplier?.response_rate ?? 0} />
                         </div>
-                        <div className="text-xs text-muted-foreground">Avg. Response Time {selectedSupplier?.avg_response_time ?? '< 2 hours>'}</div>
+                        <div className="text-xs text-muted-foreground">Orta cavab vaxtı {selectedSupplier?.avg_response_time ?? '< 2 saat>'}</div>
                       </CardContent>
                     </Card>
 
                     <Card className="md:col-span-2">
-                      <CardHeader><CardTitle>Recent Orders</CardTitle></CardHeader>
+                      <CardHeader><CardTitle>Son sifarişlər</CardTitle></CardHeader>
                       <CardContent>
+                        <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-4">
+                          <Input placeholder="Material" onChange={(e)=>setSelectedSupplier((s:any)=>({...(s||{}), _newMaterial: e.target.value}))} />
+                          <Input placeholder="Miqdar" type="number" onChange={(e)=>setSelectedSupplier((s:any)=>({...(s||{}), _newQty: Number(e.target.value||0)}))} />
+                          <Input placeholder="Dəyər" type="number" onChange={(e)=>setSelectedSupplier((s:any)=>({...(s||{}), _newVal: Number(e.target.value||0)}))} />
+                          <Select defaultValue="pending" onValueChange={(v)=>setSelectedSupplier((s:any)=>({...(s||{}), _newStatus: v}))}>
+                            <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="pending">gözləyir</SelectItem>
+                              <SelectItem value="approved">təsdiqlənib</SelectItem>
+                              <SelectItem value="in_transit">yolda</SelectItem>
+                              <SelectItem value="delivered">çatdırılıb</SelectItem>
+                              <SelectItem value="cancelled">ləğv edilib</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Button onClick={async()=>{
+                            const sid = selectedSupplier?.id ? String(selectedSupplier.id) : undefined;
+                            const sname = selectedSupplier?.company || selectedSupplier?.name;
+                            const payload: any = { material: selectedSupplier?._newMaterial, quantity: selectedSupplier?._newQty, value: selectedSupplier?._newVal, status: selectedSupplier?._newStatus || 'pending' };
+                            if (sid) payload.supplier_id = sid; else payload.supplier_name = sname;
+                            await fetch('/api/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                            const qs = sid ? `supplier_id=${encodeURIComponent(sid)}` : `supplier=${encodeURIComponent(sname || '')}`;
+                            const d = await fetch(`/api/orders?${qs}`).then(r=>r.json());
+                            setSelectedSupplier((prev:any)=>({...(prev||{}), orders: Array.isArray(d?.orders)? d.orders : [] , _newMaterial:'', _newQty:0, _newVal:0, _newStatus:'pending'}));
+                          }}>Yeni sifariş</Button>
+                        </div>
+                        <div className="flex items-center gap-2 mb-3">
+                          <Input placeholder="Axtarış (material)" value={ordersSearch} onChange={(e)=>setOrdersSearch(e.target.value)} />
+                          <Select value={ordersStatus} onValueChange={(v)=>setOrdersStatus(v)}>
+                            <SelectTrigger className="w-40"><SelectValue placeholder="Status filtri" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">hamısı</SelectItem>
+                              <SelectItem value="pending">gözləyir</SelectItem>
+                              <SelectItem value="approved">təsdiqlənib</SelectItem>
+                              <SelectItem value="in_transit">yolda</SelectItem>
+                              <SelectItem value="delivered">çatdırılıb</SelectItem>
+                              <SelectItem value="cancelled">ləğv edilib</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Input type="date" value={ordersFromDate} onChange={(e)=>setOrdersFromDate(e.target.value)} />
+                          <Input type="date" value={ordersToDate} onChange={(e)=>setOrdersToDate(e.target.value)} />
+                          <span className="ml-auto text-sm">
+                            {(() => {
+                              const filtered = (selectedSupplier?.orders || [])
+                                .filter((o:any)=>{
+                                  const m = String(o.material || '').toLowerCase();
+                                  const q = ordersSearch.toLowerCase();
+                                  const st = String(o.status || '');
+                                  const dt = (o.created_at || o.date || o.ordered_at) ? new Date(o.created_at || o.date || o.ordered_at) : null;
+                                  const okDate = (!ordersFromDate && !ordersToDate) || (!!dt && (!ordersFromDate || dt >= new Date(ordersFromDate)) && (!ordersToDate || dt <= new Date(ordersToDate)));
+                                  return (!q || m.includes(q)) && (ordersStatus==='all' || st===ordersStatus) && okDate;
+                                });
+                              const total = filtered.reduce((a:number,o:any)=>a + Number(o.value || 0), 0);
+                              return `Toplam dəyər: $${total.toFixed(2)}`;
+                            })()}
+                          </span>
+                          <Button variant="outline" onClick={()=>{
+                            const filtered = (selectedSupplier?.orders || [])
+                              .filter((o:any)=>{
+                                const m = String(o.material || '').toLowerCase();
+                                const q = ordersSearch.toLowerCase();
+                                const st = String(o.status || '');
+                                const dt = (o.created_at || o.date || o.ordered_at) ? new Date(o.created_at || o.date || o.ordered_at) : null;
+                                const okDate = (!ordersFromDate && !ordersToDate) || (!!dt && (!ordersFromDate || dt >= new Date(ordersFromDate)) && (!ordersToDate || dt <= new Date(ordersToDate)));
+                                return (!q || m.includes(q)) && (ordersStatus==='all' || st===ordersStatus) && okDate;
+                              })
+                              .map((o:any)=>({ id:o.id, material:o.material, quantity:o.quantity, status:o.status, value:o.value, date:(o.created_at || o.date || o.ordered_at || '') }));
+                            const header = 'id,material,quantity,status,value,date';
+                            const rows = filtered.map((r:any)=>`${r.id},${String(r.material||'').replace(/,/g,';')},${r.quantity||0},${r.status||''},${r.value||0},${r.date}`);
+                            const csv = [header, ...rows].join('\n');
+                            const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url; a.download = 'orders_export.csv'; a.click();
+                            URL.revokeObjectURL(url);
+                          }}>CSV eksportu</Button>
+                        </div>
                         <div className="overflow-x-auto">
                           <table className="w-full text-sm">
                             <thead className="bg-secondary">
                               <tr>
-                                <th className="p-2 text-left">Order</th>
+                                <th className="p-2 text-left">Sifariş</th>
                                 <th className="p-2 text-left">Material</th>
-                                <th className="p-2 text-left">Quantity</th>
+                                <th className="p-2 text-left">Miqdar</th>
                                 <th className="p-2 text-left">Status</th>
-                                <th className="p-2 text-left">Value</th>
+                                <th className="p-2 text-left">Dəyər</th>
+                                <th className="p-2 text-left">Əməliyyat</th>
                               </tr>
                             </thead>
                             <tbody>
-                              {(selectedSupplier?.orders || []).map((o: any, idx: number) => (
+                              {(selectedSupplier?.orders || [])
+                                .filter((o:any)=>{
+                                  const m = String(o.material || '').toLowerCase();
+                                  const q = ordersSearch.toLowerCase();
+                                  const st = String(o.status || '');
+                                  const dt = (o.created_at || o.date || o.ordered_at) ? new Date(o.created_at || o.date || o.ordered_at) : null;
+                                  const okDate = (!ordersFromDate && !ordersToDate) || (!!dt && (!ordersFromDate || dt >= new Date(ordersFromDate)) && (!ordersToDate || dt <= new Date(ordersToDate)));
+                                  return (!q || m.includes(q)) && (ordersStatus==='all' || st===ordersStatus) && okDate;
+                                })
+                                .map((o: any, idx: number) => (
                                 <tr key={idx} className="border-t border-border">
                                   <td className="p-2">{o.code || o.id}</td>
                                   <td className="p-2">{o.material || '—'}</td>
-                                  <td className="p-2">{o.quantity ? `${o.quantity} units` : '—'}</td>
-                                  <td className="p-2">{o.status || '—'}</td>
+                                  <td className="p-2">{o.quantity ? `${o.quantity} vahid` : '—'}</td>
+                                  <td className="p-2">
+                                    <select className="border px-2 py-1 rounded" defaultValue={String(o.status || '')} onChange={(e)=>{ o._nextStatus = e.target.value; }}>
+                                      <option value="pending">gözləyir</option>
+                                      <option value="approved">təsdiqlənib</option>
+                                      <option value="in_transit">yolda</option>
+                                      <option value="delivered">çatdırılıb</option>
+                                      <option value="cancelled">ləğv edilib</option>
+                                    </select>
+                                  </td>
                                   <td className="p-2">{o.value ? `$${o.value}` : '—'}</td>
+                                  <td className="p-2">
+                                    <div className="flex gap-2">
+                                      <button className="px-2 py-1 border rounded" onClick={async()=>{
+                                        const next = o._nextStatus || o.status;
+                                        if (!o.id) return;
+                                        await fetch(`/api/orders/${encodeURIComponent(String(o.id))}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: next }) });
+                                        const sid = selectedSupplier?.id ? String(selectedSupplier.id) : undefined;
+                                        const sname = selectedSupplier?.company || selectedSupplier?.name;
+                                        const qs = sid ? `supplier_id=${encodeURIComponent(sid)}` : `supplier=${encodeURIComponent(sname || '')}`;
+                                        const d = await fetch(`/api/orders?${qs}`).then(r=>r.json());
+                                        setSelectedSupplier((prev: any) => ({ ...(prev||{}), orders: Array.isArray(d?.orders)? d.orders : [] }));
+                                      }}>Yadda saxla</button>
+                                      <button className="px-2 py-1 border rounded text-destructive" onClick={async()=>{
+                                        if (!o.id) return;
+                                        await fetch(`/api/orders/${encodeURIComponent(String(o.id))}`, { method: 'DELETE' });
+                                        const sid = selectedSupplier?.id ? String(selectedSupplier.id) : undefined;
+                                        const sname = selectedSupplier?.company || selectedSupplier?.name;
+                                        const qs = sid ? `supplier_id=${encodeURIComponent(sid)}` : `supplier=${encodeURIComponent(sname || '')}`;
+                                        const d = await fetch(`/api/orders?${qs}`).then(r=>r.json());
+                                        setSelectedSupplier((prev: any) => ({ ...(prev||{}), orders: Array.isArray(d?.orders)? d.orders : [] }));
+                                      }}>Sil</button>
+                                    </div>
+                                  </td>
                                 </tr>
                               ))}
                               {!(selectedSupplier?.orders || []).length && (
-                                <tr className="border-t border-border"><td className="p-2" colSpan={5}>Sifariş yoxdur</td></tr>
+                                <tr className="border-t border-border"><td className="p-2" colSpan={6}>Sifariş yoxdur</td></tr>
                               )}
                             </tbody>
                           </table>
@@ -905,6 +1383,14 @@ export default function Home() {
         </div>
       )}
     </DashboardLayout>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<div className="min-h-screen p-4">Yüklənir...</div>}>
+      <HomeContent />
+    </Suspense>
   );
 }
 

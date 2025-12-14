@@ -4,7 +4,7 @@ import { ProductionChart } from '@/src/components/dashboard/ProductionChart';
 
 const Production = () => {
   return (
-    <DashboardLayout title="Production" subtitle="Manufacturing stages & output monitoring">
+    <DashboardLayout title="İstehsal" subtitle="İstehsal mərhələləri və çıxışın izlənməsi">
       <div className="space-y-6">
         <ProductionPipeline />
         <ProductionChart />

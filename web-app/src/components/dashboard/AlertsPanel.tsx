@@ -1,7 +1,9 @@
+ "use client";
 import { useEffect, useState } from 'react';
 import { AlertTriangle, AlertCircle, Info, X, Clock } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { cn } from '@/src/lib/utils';
+import { useRouter } from 'next/navigation';
 
 type Alert = {
   id: string;
@@ -39,6 +41,7 @@ const alertConfig = {
 export const AlertsPanel = () => {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [dismissed, setDismissed] = useState<string[]>([]);
+  const router = useRouter();
 
   useEffect(() => {
     let mounted = true;
@@ -46,20 +49,38 @@ export const AlertsPanel = () => {
     if (stored) {
       try { setDismissed(JSON.parse(stored)); } catch {}
     }
-    fetch('/api/alerts')
-      .then((r) => r.json())
-      .then((d) => {
+    let t: any = null;
+    try {
+      const es = new EventSource('http://127.0.0.1:8000/api/events');
+      es.onmessage = (ev) => {
         if (!mounted) return;
-        const list: Alert[] = d.alerts || [];
-        setAlerts(list);
-      })
-      .catch(() => {
-        if (!mounted) return;
-        setAlerts([]);
-      });
-    return () => {
-      mounted = false;
-    };
+        try {
+          const d = JSON.parse(ev.data);
+          const arr = Array.isArray(d?.alerts) ? d.alerts : [];
+          setAlerts(arr.map((a: any, idx: number) => ({ id: String(idx), type: String(a.level || 'info') as any, title: String(a.message || ''), message: String(a.message || ''), time: new Date().toLocaleString(), source: 'system' })));
+        } catch {}
+      };
+      es.onerror = () => {
+        try { es.close(); } catch {}
+        t = setInterval(() => {
+          fetch('/api/alerts').then(r=>r.json()).then((arr)=>{
+            if (!mounted) return;
+            const list = Array.isArray(arr) ? arr : (Array.isArray(arr?.alerts) ? arr.alerts : []);
+            setAlerts(list.map((a:any, idx:number)=>({ id:String(idx), type:String(a.level||'info') as any, title:String(a.message||''), message:String(a.message||''), time:new Date().toLocaleString(), source:'system' })));
+          }).catch(()=>{});
+        }, 15000);
+      };
+      return () => { mounted = false; try { es.close(); } catch {}; if (t) clearInterval(t); };
+    } catch {
+      t = setInterval(() => {
+        fetch('/api/alerts').then(r=>r.json()).then((arr)=>{
+          if (!mounted) return;
+          const list = Array.isArray(arr) ? arr : (Array.isArray(arr?.alerts) ? arr.alerts : []);
+          setAlerts(list.map((a:any, idx:number)=>({ id:String(idx), type:String(a.level||'info') as any, title:String(a.message||''), message:String(a.message||''), time:new Date().toLocaleString(), source:'system' })));
+        }).catch(()=>{});
+      }, 15000);
+      return () => { mounted = false; if (t) clearInterval(t); };
+    }
   }, []);
 
   function handleDismiss(id: string) {
@@ -72,17 +93,15 @@ export const AlertsPanel = () => {
   }
 
   function handleViewAll() {
-    if (typeof window !== 'undefined') {
-      window.location.href = '/?view=alerts';
-    }
+    router.push('/?view=alerts');
   }
 
   return (
     <div className="glass-card p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-lg font-semibold text-foreground">Active Alerts</h2>
-          <p className="text-sm text-muted-foreground">System notifications & warnings</p>
+          <h2 className="text-lg font-semibold text-foreground">Aktiv bildirişlər</h2>
+          <p className="text-sm text-muted-foreground">Sistem bildirişləri və xəbərdarlıqlar</p>
         </div>
         <div className="flex items-center gap-2">
           <span className="badge-status bg-destructive/10 text-destructive">
@@ -148,7 +167,7 @@ export const AlertsPanel = () => {
       </div>
 
       <Button onClick={handleViewAll} variant="ghost" className="w-full mt-4 text-muted-foreground hover:text-foreground">
-        View All Alerts
+        Bütün bildirişlərə bax
       </Button>
     </div>
   );

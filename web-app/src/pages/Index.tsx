@@ -12,56 +12,56 @@ import { Factory, Package, Truck, AlertTriangle, CheckCircle2, Clock } from 'luc
 const Index = () => {
   return (
     <DashboardLayout 
-      title="Pipeline Dashboard" 
-      subtitle="Real-time manufacturing operations overview"
+      title="Boru kəməri paneli" 
+      subtitle="Real-time istehsal əməliyyatlarının icmalı"
     >
       {/* KPI Stats Row */}
       <div className="data-grid mb-6">
         <StatCard
-          title="Daily Production"
+          title="Günlük istehsal"
           value="4,892"
           icon={Factory}
           trend={{ value: 12.5, isPositive: true }}
           variant="primary"
-          subtitle="units manufactured"
+          subtitle="istehsal edilən vahidlər"
         />
         <StatCard
-          title="Raw Materials"
+          title="Xammal"
           value="18,420"
           icon={Package}
           trend={{ value: 3.2, isPositive: false }}
           variant="warning"
-          subtitle="kg in inventory"
+          subtitle="anbarda (kg)"
         />
         <StatCard
-          title="Active Shipments"
+          title="Aktiv göndərişlər"
           value="24"
           icon={Truck}
           trend={{ value: 8.7, isPositive: true }}
           variant="success"
-          subtitle="in transit"
+          subtitle="yolda"
         />
         <StatCard
-          title="Active Alerts"
+          title="Aktiv bildirişlər"
           value="3"
           icon={AlertTriangle}
           variant="danger"
-          subtitle="requiring attention"
+          subtitle="diqqət tələb edir"
         />
         <StatCard
-          title="Quality Pass Rate"
+          title="Keyfiyyət keçmə faizi"
           value="98.2%"
           icon={CheckCircle2}
           trend={{ value: 0.5, isPositive: true }}
           variant="success"
-          subtitle="this week"
+          subtitle="bu həftə"
         />
         <StatCard
-          title="Avg. Lead Time"
+          title="Orta çatdırılma müddəti"
           value="4.2d"
           icon={Clock}
           trend={{ value: 5.3, isPositive: true }}
-          subtitle="order to delivery"
+          subtitle="sifarişdən çatdırılmaya"
         />
       </div>
 

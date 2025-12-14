@@ -5,11 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Mail, Eye, EyeOff, ArrowRight } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 export default function AuthPage(){
-  const params = useSearchParams();
-  const mode = params?.get('mode') === 'signup' ? 'signup' : 'login';
+  const sp = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+  const mode = sp?.get('mode') === 'signup' ? 'signup' : 'login';
   return (
     <div className="min-h-screen grid md:grid-cols-2 gap-6 p-6">
       <LeftHero />
@@ -22,9 +22,9 @@ function LeftHero(){
   return (
     <div className="p-8 rounded-xl bg-card/40 border border-border/50">
       <div className="space-y-3 mb-8">
-        <h2 className="text-2xl font-bold text-foreground">Streamline Your</h2>
-        <h2 className="text-2xl font-bold text-primary">Supply Chain</h2>
-        <p className="text-muted-foreground">Monitor production, track deliveries, and manage supplier relationships — all in one platform.</p>
+        <h2 className="text-2xl font-bold text-foreground">Təchizat zəncirinizi</h2>
+        <h2 className="text-2xl font-bold text-primary">sadələşdirin</h2>
+        <p className="text-muted-foreground">İstehsalı izləyin, çatdırılmaları idarə edin və təchizatçı münasibətlərini bir platformada yönəldin.</p>
       </div>
       <div className="grid grid-cols-2 gap-4 mb-8">
         <Stat label="Active Suppliers" value="48" />
@@ -32,7 +32,7 @@ function LeftHero(){
         <Stat label="Quality Score" value="98.5%" />
         <Stat label="Units Produced" value="2.4M" />
       </div>
-      <p className="text-xs text-muted-foreground">© 2024 PipeFlow Industries. All rights reserved.</p>
+      <p className="text-xs text-muted-foreground">© 2024 PipeFlow Industries. Bütün hüquqlar qorunur.</p>
     </div>
   );
 }
@@ -71,11 +71,11 @@ function RightLogin(){
 
   return (
     <div className="p-8 rounded-xl bg-card/40 border border-border/50">
-      <h3 className="text-xl font-bold text-foreground mb-1">Welcome back</h3>
-      <p className="text-sm text-muted-foreground mb-4">Enter your credentials to access your account</p>
+      <h3 className="text-xl font-bold text-foreground mb-1">Yenidən xoş gəldiniz</h3>
+      <p className="text-sm text-muted-foreground mb-4">Hesabınıza daxil olmaq üçün məlumatlarınızı daxil edin</p>
 
       <div className="rounded-lg bg-secondary/30 border border-border/40 p-4 mb-6 text-sm">
-        <div className="text-muted-foreground">Demo Credentials</div>
+        <div className="text-muted-foreground">Demo Məlumatları</div>
         <div className="mt-2 space-y-1">
           <div>Admin: <span className="text-foreground">admin@pipeflow.com / admin123</span></div>
           <div>Supplier: <span className="text-foreground">supplier@pipeflow.com / supplier123</span></div>
@@ -102,7 +102,7 @@ function RightLogin(){
         {info && <div className="text-amber-700">{info}</div>}
         <Button className="w-full gap-2" onClick={onSubmit}>Sign in <ArrowRight className="w-4 h-4" /></Button>
         <div className="text-sm text-muted-foreground text-center">
-          Don't have an account? <a className="text-primary hover:underline" href="/auth?mode=signup">Sign up</a>
+          Hesabınız yoxdur? <a className="text-primary hover:underline" href="/auth?mode=signup">Qeydiyyat</a>
         </div>
       </div>
     </div>
@@ -110,6 +110,7 @@ function RightLogin(){
 }
 
 function RightSignup(){
+  const router = useRouter();
   const [email,setEmail]=useState("");
   const [password,setPassword]=useState("");
   const [company,setCompany]=useState("");
@@ -117,8 +118,8 @@ function RightSignup(){
   const [info,setInfo]=useState("");
   return (
     <div className="p-8 rounded-xl bg-card/40 border border-border/50">
-      <h3 className="text-xl font-bold text-foreground mb-1">Create account</h3>
-      <p className="text-sm text-muted-foreground mb-4">Fill in the details to sign up</p>
+      <h3 className="text-xl font-bold text-foreground mb-1">Hesab yaradın</h3>
+      <p className="text-sm text-muted-foreground mb-4">Qeydiyyat üçün məlumatları doldurun</p>
       <div className="space-y-4">
         <div>
           <Label>Email</Label>
@@ -148,12 +149,12 @@ function RightSignup(){
           if (d?.id) {
             window.localStorage.setItem('role','supplier');
             window.localStorage.setItem('supplier_id', String(d.id));
-            window.location.href = `/supplier/${String(d.id)}`;
+            router.push(`/supplier/${String(d.id)}`);
           }
         }}>Sign up</Button>
         {info && <div className="text-amber-700">{info}</div>}
         <div className="text-sm text-muted-foreground text-center">
-          Already have an account? <a className="text-primary hover:underline" href="/auth">Sign in</a>
+          Artıq hesabınız var? <a className="text-primary hover:underline" href="/auth">Daxil ol</a>
         </div>
       </div>
     </div>

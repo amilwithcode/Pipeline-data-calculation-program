@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+ "use client";
+ import { useState, useEffect } from 'react';
+ import { useRouter } from 'next/navigation';
 import { 
   Users, 
   Package, 
@@ -62,12 +63,7 @@ interface Supplier {
 }
 
 
-const mockSuppliers: Supplier[] = [
-  { id: '1', name: 'John Smith', company: 'SteelWorks Inc.', email: 'john@steelworks.com', rating: 4.8, deliveryScore: 96, qualityScore: 98, activeOrders: 5, status: 'active' },
-  { id: '2', name: 'Emily Davis', company: 'Premium Fittings', email: 'emily@fittings.com', rating: 4.5, deliveryScore: 92, qualityScore: 95, activeOrders: 3, status: 'active' },
-  { id: '3', name: 'Mike Johnson', company: 'ValveCo', email: 'mike@valveco.com', rating: 0, deliveryScore: 0, qualityScore: 0, activeOrders: 0, status: 'pending' },
-  { id: '4', name: 'Lisa Wang', company: 'Industrial Gaskets', email: 'lisa@gaskets.com', rating: 4.2, deliveryScore: 88, qualityScore: 91, activeOrders: 2, status: 'active' },
-];
+// removed mocks; suppliers are loaded from backend
 
 const roleConfig = {
   admin: { label: 'Admin', color: 'bg-destructive/20 text-destructive border-destructive/30' },
@@ -97,23 +93,24 @@ export default function Admin() {
   const [supplierOrders, setSupplierOrders] = useState<any[]>([]);
   const [qualityPassRate, setQualityPassRate] = useState<number>(0);
   const [avgLeadDays, setAvgLeadDays] = useState<number>(0);
-  const navigate = useNavigate();
+  const router = useRouter();
   const { toast } = useToast();
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
     if (!storedUser) {
-      navigate('/auth');
+      router.push('/auth');
       return;
     }
     const parsed = JSON.parse(storedUser);
     if (parsed.role !== 'admin') {
       toast({ title: 'Access Denied', description: 'Admin access required', variant: 'destructive' });
-      navigate('/');
+      router.push('/');
       return;
     }
     setUser(parsed);
-  }, [navigate, toast]);
+  }, [router, toast]);
 
   useEffect(() => {
     let mounted = true;
@@ -133,6 +130,29 @@ export default function Admin() {
         setUsers(list);
       })
       .catch(() => { if (!mounted) return; setUsers([]); });
+    return () => { mounted = false; };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    fetch('/api/suppliers')
+      .then((r) => r.json())
+      .then((arr) => {
+        if (!mounted) return;
+        const list: Supplier[] = Array.isArray(arr) ? arr.map((s: any) => ({
+          id: String(s.id ?? Math.random()),
+          name: String(s.name ?? s.contact ?? ''),
+          company: String(s.company ?? s.name ?? ''),
+          email: String(s.email ?? ''),
+          rating: Number(s.rating ?? 0),
+          deliveryScore: Number(s.delivery_score ?? s.deliveryScore ?? 0),
+          qualityScore: Number(s.quality_score ?? s.qualityScore ?? 0),
+          activeOrders: Number(s.active_orders ?? s.activeOrders ?? 0),
+          status: String(s.status ?? 'active') as any,
+        })) : [];
+        setSuppliers(list);
+      })
+      .catch(() => { if (!mounted) return; setSuppliers([]); });
     return () => { mounted = false; };
   }, []);
 
@@ -198,13 +218,13 @@ export default function Admin() {
     (u.email || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const filteredSuppliers = mockSuppliers.filter(s => 
+  const filteredSuppliers = suppliers.filter(s => 
     s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     s.company.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const pendingApprovals = users.filter(u => u.status === 'pending').length + 
-                          mockSuppliers.filter(s => s.status === 'pending').length;
+                          suppliers.filter(s => s.status === 'pending').length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -216,7 +236,7 @@ export default function Admin() {
               <Shield className="w-5 h-5 text-destructive-foreground" />
             </div>
             <div>
-              <h1 className="font-bold text-foreground text-lg">Admin Panel</h1>
+              <h1 className="font-bold text-foreground text-lg">Admin Paneli</h1>
               <p className="text-xs text-muted-foreground">PipeFlow Industries</p>
             </div>
           </div>
@@ -224,7 +244,7 @@ export default function Admin() {
           <div className="flex items-center gap-4">
             <Button variant="outline" size="sm" onClick={() => navigate('/')}>
               <Factory className="w-4 h-4 mr-2" />
-              Dashboard
+              Panel
             </Button>
             <Button size="sm" className="gap-2" onClick={() => navigate('/auth')}>
               <Shield className="w-4 h-4" />
@@ -236,7 +256,7 @@ export default function Admin() {
             </div>
             <Button variant="outline" className="gap-2" onClick={handleLogout}>
               <LogOut className="w-4 h-4" />
-              Logout
+              Çıxış
             </Button>
           </div>
         </div>
@@ -249,7 +269,7 @@ export default function Admin() {
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Total Users</p>
+                  <p className="text-sm text-muted-foreground">Toplam istifadəçi</p>
                   <p className="text-3xl font-bold text-foreground">{users.length}</p>
                 </div>
                 <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -263,8 +283,8 @@ export default function Admin() {
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Active Suppliers</p>
-                  <p className="text-3xl font-bold text-foreground">{mockSuppliers.filter(s => s.status === 'active').length}</p>
+                  <p className="text-sm text-muted-foreground">Aktiv təchizatçı</p>
+                  <p className="text-3xl font-bold text-foreground">{suppliers.filter(s => s.status === 'active').length}</p>
                 </div>
                 <div className="w-12 h-12 rounded-xl bg-success/10 flex items-center justify-center">
                   <Package className="w-6 h-6 text-success" />
@@ -277,9 +297,9 @@ export default function Admin() {
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Quality Pass Rate</p>
+                  <p className="text-sm text-muted-foreground">Keyfiyyət keçmə faizi</p>
                   <p className="text-3xl font-bold text-success">{qualityPassRate.toFixed(1)}%</p>
-                  <p className="text-xs text-muted-foreground">this week</p>
+                  <p className="text-xs text-muted-foreground">bu həftə</p>
                 </div>
                 <div className="w-12 h-12 rounded-xl bg-success/10 flex items-center justify-center">
                   <CheckCircle2 className="w-6 h-6 text-success" />
@@ -292,9 +312,9 @@ export default function Admin() {
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Avg. Lead Time</p>
+                  <p className="text-sm text-muted-foreground">Orta çatdırılma müddəti</p>
                   <p className="text-3xl font-bold text-foreground">{avgLeadDays.toFixed(1)}d</p>
-                  <p className="text-xs text-muted-foreground">order to delivery</p>
+                  <p className="text-xs text-muted-foreground">sifarişdən çatdırılmaya</p>
                 </div>
                 <div className="w-12 h-12 rounded-xl bg-primary/10 flex items_center justify_center">
                   <Clock className="w-6 h-6 text-primary" />
@@ -388,7 +408,7 @@ export default function Admin() {
             <Tabs defaultValue="users" className="space-y-4">
               <TabsList>
                 <TabsTrigger value="users">Users ({users.length})</TabsTrigger>
-                <TabsTrigger value="suppliers">Suppliers ({mockSuppliers.length})</TabsTrigger>
+                <TabsTrigger value="suppliers">Suppliers ({suppliers.length})</TabsTrigger>
                 <TabsTrigger value="pending">Pending ({pendingApprovals})</TabsTrigger>
               </TabsList>
 
@@ -635,7 +655,7 @@ export default function Admin() {
 
               <TabsContent value="pending">
                 <div className="space-y-4">
-                  {[...users.filter(u => u.status === 'pending'), ...mockSuppliers.filter(s => s.status === 'pending')].map((item) => (
+                  {[...users.filter(u => u.status === 'pending'), ...suppliers.filter(s => s.status === 'pending')].map((item) => (
                     <div key={item.id} className="flex items-center justify-between p-4 rounded-lg bg-secondary/30">
                       <div className="flex items-center gap-4">
                         <div className="w-10 h-10 rounded-full bg-warning/10 flex items-center justify-center">

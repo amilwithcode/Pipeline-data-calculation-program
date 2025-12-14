@@ -3,7 +3,7 @@ import { AlertsPanel } from '@/src/components/dashboard/AlertsPanel';
 
 const Alerts = () => {
   return (
-    <DashboardLayout title="Alerts" subtitle="System notifications & warnings">
+    <DashboardLayout title="Bildirişlər" subtitle="Sistem bildirişləri və xəbərdarlıqlar">
       <AlertsPanel />
     </DashboardLayout>
   );

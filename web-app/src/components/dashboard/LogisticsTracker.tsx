@@ -15,6 +15,9 @@ interface Shipment {
 
 export const LogisticsTracker = () => {
   const [shipments, setShipments] = useState<Shipment[]>([]);
+  const [newShipment, setNewShipment] = useState<any>({ orderId:'', destination:'', status:'pending', eta:'', progress:0, carrier:'', quantity:0 });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editRow, setEditRow] = useState<Shipment | null>(null);
   useEffect(() => {
     let mounted = true;
     fetch('/api/shipments')
@@ -23,6 +26,12 @@ export const LogisticsTracker = () => {
       .catch(() => { if (!mounted) return; setShipments([]); });
     return () => { mounted = false; };
   }, []);
+  const reload = () => {
+    fetch('/api/shipments')
+      .then(r => r.json())
+      .then(d => { setShipments(Array.isArray(d.shipments) ? d.shipments : []); })
+      .catch(() => { setShipments([]); });
+  };
 
 const statusConfig = {
   'in-transit': { icon: Truck, color: 'text-primary', bgColor: 'bg-primary/10', label: 'In Transit' },
@@ -57,6 +66,25 @@ const statusConfig = {
           </div>
         </div>
       </div>
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-2 mb-4">
+        <input className="border px-2 py-1 rounded" placeholder="Order ID" value={newShipment.orderId} onChange={(e)=>setNewShipment((s:any)=>({...s, orderId:e.target.value }))} />
+        <input className="border px-2 py-1 rounded" placeholder="Destination" value={newShipment.destination} onChange={(e)=>setNewShipment((s:any)=>({...s, destination:e.target.value }))} />
+        <select className="border px-2 py-1 rounded" value={newShipment.status} onChange={(e)=>setNewShipment((s:any)=>({...s, status:e.target.value }))}>
+          <option value="pending">pending</option>
+          <option value="in-transit">in-transit</option>
+          <option value="delivered">delivered</option>
+          <option value="delayed">delayed</option>
+        </select>
+        <input className="border px-2 py-1 rounded" placeholder="ETA" value={newShipment.eta} onChange={(e)=>setNewShipment((s:any)=>({...s, eta:e.target.value }))} />
+        <input className="border px-2 py-1 rounded" type="number" placeholder="Progress %" value={newShipment.progress} onChange={(e)=>setNewShipment((s:any)=>({...s, progress: parseInt(e.target.value||'0',10) }))} />
+        <input className="border px-2 py-1 rounded" placeholder="Carrier" value={newShipment.carrier} onChange={(e)=>setNewShipment((s:any)=>({...s, carrier:e.target.value }))} />
+        <input className="border px-2 py-1 rounded" type="number" placeholder="Quantity" value={newShipment.quantity} onChange={(e)=>setNewShipment((s:any)=>({...s, quantity: parseInt(e.target.value||'0',10) }))} />
+        <button className="px-3 py-1 rounded bg-primary text-primary-foreground" onClick={async()=>{
+          await fetch('/api/shipments', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ ...newShipment, id: String(Date.now()) }) });
+          setNewShipment({ orderId:'', destination:'', status:'pending', eta:'', progress:0, carrier:'', quantity:0 });
+          reload();
+        }}>Yeni shipment</button>
+      </div>
 
       <div className="space-y-4">
         {shipments.map((shipment) => {
@@ -74,10 +102,16 @@ const statusConfig = {
                     <Icon className={cn("w-5 h-5", config.color)} />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-foreground">{shipment.orderId}</p>
+                    <p className="text-sm font-semibold text-foreground">
+                      {editingId === shipment.id ? (
+                        <input className="border px-2 py-1 rounded" value={editRow?.orderId || ''} onChange={(e)=>setEditRow((r:any)=>({...(r||{}), orderId:e.target.value}))} />
+                      ) : shipment.orderId}
+                    </p>
                     <div className="flex items-center gap-1 text-xs text-muted-foreground">
                       <MapPin className="w-3 h-3" />
-                      {shipment.destination}
+                      {editingId === shipment.id ? (
+                        <input className="border px-2 py-1 rounded" value={editRow?.destination || ''} onChange={(e)=>setEditRow((r:any)=>({...(r||{}), destination:e.target.value}))} />
+                      ) : shipment.destination}
                     </div>
                   </div>
                 </div>
@@ -85,7 +119,11 @@ const statusConfig = {
                   <span className={cn("badge-status", config.bgColor, config.color)}>
                     {config.label}
                   </span>
-                  <p className="text-xs text-muted-foreground mt-1">{shipment.eta}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {editingId === shipment.id ? (
+                      <input className="border px-2 py-1 rounded" value={editRow?.eta || ''} onChange={(e)=>setEditRow((r:any)=>({...(r||{}), eta:e.target.value}))} />
+                    ) : shipment.eta}
+                  </p>
                 </div>
               </div>
 
@@ -94,11 +132,11 @@ const statusConfig = {
                   <div 
                     className={cn(
                       "progress-bar-fill",
-                      shipment.status === 'delivered' ? 'bg-success' :
+                      shipment.status === 'delivered' ? 'bg_success' :
                       shipment.status === 'delayed' ? 'bg-destructive' :
                       shipment.status === 'in-transit' ? 'bg-primary' : 'bg-warning'
                     )}
-                    style={{ width: `${shipment.progress}%` }}
+                    style={{ width: `${editingId === shipment.id ? (editRow?.progress ?? 0) : shipment.progress}%` }}
                   />
                 </div>
               </div>
@@ -106,9 +144,39 @@ const statusConfig = {
               <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <div className="flex items-center gap-1">
                   <Package className="w-3 h-3" />
-                  {shipment.quantity.toLocaleString()} units
+                  {editingId === shipment.id ? (
+                    <input className="border px-2 py-1 rounded w-24" type="number" value={editRow?.quantity ?? 0} onChange={(e)=>setEditRow((r:any)=>({...(r||{}), quantity: parseInt(e.target.value||'0',10)}))} />
+                  ) : `${shipment.quantity.toLocaleString()} units`}
                 </div>
-                <span>Carrier: {shipment.carrier}</span>
+                <span>Carrier: {editingId === shipment.id ? (
+                  <input className="border px-2 py-1 rounded" value={editRow?.carrier || ''} onChange={(e)=>setEditRow((r:any)=>({...(r||{}), carrier: e.target.value}))} />
+                ) : shipment.carrier}</span>
+              </div>
+              <div className="mt-3 flex gap-2">
+                {editingId === shipment.id ? (
+                  <>
+                    <select className="border px-2 py-1 rounded" value={editRow?.status || 'pending'} onChange={(e)=>setEditRow((r:any)=>({...(r||{}), status: e.target.value}))}>
+                      <option value="pending">pending</option>
+                      <option value="in-transit">in-transit</option>
+                      <option value="delivered">delivered</option>
+                      <option value="delayed">delayed</option>
+                    </select>
+                    <button className="px-2 py-1 rounded bg-primary text-primary-foreground" onClick={async()=>{
+                      const payload = { orderId: editRow?.orderId, destination: editRow?.destination, status: editRow?.status, eta: editRow?.eta, progress: editRow?.progress, carrier: editRow?.carrier, quantity: editRow?.quantity };
+                      await fetch(`/api/shipments/${encodeURIComponent(String(shipment.id))}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+                      setEditingId(null); setEditRow(null); reload();
+                    }}>Yadda saxla</button>
+                    <button className="px-2 py-1 border rounded" onClick={()=>{ setEditingId(null); setEditRow(null); }}>İmtina</button>
+                  </>
+                ) : (
+                  <>
+                    <button className="px-2 py-1 border rounded" onClick={()=>{ setEditingId(shipment.id); setEditRow(shipment); }}>Düzəliş et</button>
+                    <button className="px-2 py-1 border rounded text-destructive" onClick={async()=>{
+                      await fetch(`/api/shipments/${encodeURIComponent(String(shipment.id))}`, { method:'DELETE' });
+                      reload();
+                    }}>Sil</button>
+                  </>
+                )}
               </div>
             </div>
           );

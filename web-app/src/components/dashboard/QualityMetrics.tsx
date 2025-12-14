@@ -15,6 +15,11 @@ interface QualityTest {
 export const QualityMetrics = () => {
   const [tests, setTests] = useState<QualityTest[]>([]);
   const [totals, setTotals] = useState<{ total: number; passed: number; failed: number } | null>(null);
+  const [newName, setNewName] = useState<string>('');
+  const [newTotal, setNewTotal] = useState<number>(0);
+  const [newPassed, setNewPassed] = useState<number>(0);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editRow, setEditRow] = useState<QualityTest | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -37,6 +42,18 @@ export const QualityMetrics = () => {
   const overallPassRate = list.length
     ? (list.reduce((acc, test) => acc + test.passRate, 0) / list.length).toFixed(1)
     : '0.0';
+  const reload = () => {
+    fetch('/api/quality')
+      .then(r => r.json())
+      .then(d => {
+        setTests(Array.isArray(d.tests) ? d.tests : []);
+        setTotals(d.totals ?? null);
+      })
+      .catch(() => {
+        setTests([]);
+        setTotals({ total: 0, passed: 0, failed: 0 });
+      });
+  };
 
   return (
     <div className="glass-card p-6">
@@ -50,26 +67,66 @@ export const QualityMetrics = () => {
           <p className="text-xs text-muted-foreground">Overall Pass Rate</p>
         </div>
       </div>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-4">
+        <input className="border px-2 py-1 rounded" placeholder="Test adı" value={newName} onChange={(e)=>setNewName(e.target.value)} />
+        <input className="border px-2 py-1 rounded" type="number" placeholder="Cəmi test" value={newTotal} onChange={(e)=>setNewTotal(parseInt(e.target.value||'0',10))} />
+        <input className="border px-2 py-1 rounded" type="number" placeholder="Keçən test" value={newPassed} onChange={(e)=>setNewPassed(parseInt(e.target.value||'0',10))} />
+        <button className="px-3 py-1 rounded bg-primary text-primary-foreground" onClick={async()=>{
+          const payload = { id: String(Date.now()), name: newName, totalTests: newTotal, passed: newPassed, failed: Math.max(0, newTotal-newPassed), passRate: newTotal ? Math.round((newPassed/newTotal)*100) : 0 };
+          await fetch('/api/quality', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+          setNewName(''); setNewTotal(0); setNewPassed(0);
+          reload();
+        }}>Əlavə et</button>
+      </div>
 
       <div className="space-y-4">
         {list.map((test) => (
           <div key={test.id} className="group">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-foreground">{test.name}</span>
+              <span className="text-sm font-medium text-foreground">
+                {editingId === test.id ? (
+                  <input className="border px-2 py-1 rounded" value={editRow?.name || ''} onChange={(e)=>setEditRow((r:any)=>({...(r||{}), name: e.target.value}))} />
+                ) : test.name}
+              </span>
               <div className="flex items-center gap-3">
                 <span className="text-xs text-muted-foreground">
                   {test.passed}/{test.totalTests} passed
                 </span>
                 <span className={cn(
                   "text-sm font-semibold font-mono",
-                  test.passRate >= 98 ? "text-success" : 
-                  test.passRate >= 95 ? "text-warning" : "text-destructive"
+                  test.passRate >= 95 ? "text-success" : 
+                  test.passRate >= 90 ? "text-warning" : "text-destructive"
                 )}>
                   {test.passRate}%
                 </span>
+                {editingId === test.id ? (
+                  <>
+                    <input className="border px-2 py-1 rounded w-24" type="number" value={editRow?.totalTests ?? 0} onChange={(e)=>setEditRow((r:any)=>({...(r||{}), totalTests: parseInt(e.target.value||'0',10)}))} />
+                    <input className="border px-2 py-1 rounded w-24" type="number" value={editRow?.passed ?? 0} onChange={(e)=>setEditRow((r:any)=>({...(r||{}), passed: parseInt(e.target.value||'0',10)}))} />
+                  </>
+                ) : null}
+                {editingId === test.id ? (
+                  <>
+                    <button className="px-2 py-1 rounded bg-primary text-primary-foreground" onClick={async()=>{
+                      const payload = { name: editRow?.name, totalTests: editRow?.totalTests, passed: editRow?.passed, failed: Math.max(0, (editRow?.totalTests||0)-(editRow?.passed||0)), passRate: (editRow?.totalTests||0) ? Math.round(((editRow?.passed||0)/(editRow?.totalTests||0))*100) : 0 };
+                      await fetch(`/api/quality/${encodeURIComponent(String(test.id))}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+                      setEditingId(null); setEditRow(null);
+                      reload();
+                    }}>Yadda saxla</button>
+                    <button className="px-2 py-1 rounded border" onClick={()=>{ setEditingId(null); setEditRow(null); }}>İmtina</button>
+                  </>
+                ) : (
+                  <>
+                    <button className="px-2 py-1 rounded border" onClick={()=>{ setEditingId(test.id); setEditRow(test); }}>Düzəliş et</button>
+                    <button className="px-2 py-1 rounded border text-destructive" onClick={async()=>{
+                      await fetch(`/api/quality/${encodeURIComponent(String(test.id))}`, { method:'DELETE' });
+                      reload();
+                    }}>Sil</button>
+                  </>
+                )}
               </div>
             </div>
-            <div className="progress-bar">
+            <div className="h-2 rounded bg-secondary/50 overflow-hidden">
               <div 
                 className={cn(
                   "progress-bar-fill",

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { Factory, Mail, Lock, User, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { Input } from '@/src/components/ui/input';
@@ -16,7 +16,7 @@ export default function Auth() {
   const [company, setCompany] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const navigate = useNavigate();
+  const router = useRouter();
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -34,7 +34,7 @@ export default function Auth() {
           const u = data.user;
           localStorage.setItem('user', JSON.stringify({ email: u.email || email, role: u.role || 'supplier', name: u.full_name || name }));
           toast({ title: 'Welcome back!', description: 'Login successful' });
-          if ((u.role || '') === 'admin') navigate('/admin'); else navigate('/');
+          if ((u.role || '') === 'admin') router.push('/?view=admin'); else router.push('/');
         } else {
           toast({ title: 'Invalid credentials', description: 'Please check your email and password', variant: 'destructive' });
         }
@@ -49,7 +49,7 @@ export default function Auth() {
           const u = data.user;
           localStorage.setItem('user', JSON.stringify({ email: u.email || email, role: u.role || 'supplier', name }));
           toast({ title: 'Account created!', description: 'Welcome to PipeFlow' });
-          navigate('/');
+          router.push('/');
         } else {
           toast({ title: 'Registration failed', description: 'Please try again', variant: 'destructive' });
         }

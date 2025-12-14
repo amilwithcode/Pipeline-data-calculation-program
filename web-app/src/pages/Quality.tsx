@@ -3,7 +3,7 @@ import { QualityMetrics } from '@/components/dashboard/QualityMetrics';
 
 const Quality = () => {
   return (
-    <DashboardLayout title="Quality Control" subtitle="Test results & compliance tracking">
+    <DashboardLayout title="Keyfiyyət Nəzarəti" subtitle="Test nəticələri və uyğunluğun izlənməsi">
       <QualityMetrics />
     </DashboardLayout>
   );

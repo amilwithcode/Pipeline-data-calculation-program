@@ -133,6 +133,30 @@ def _product_delete(pid: str):
     if not ok:
         _queue_append("products_delete", {"id": pid})
     return True if ok else _queue_append("products_delete", {"id": pid})
+def _product_update(pid: str, name: str | None = None, stock: int | None = None):
+    body = {}
+    if name is not None:
+        body["pipeline_name"] = name
+    if stock is not None:
+        body["pipeline_stock"] = stock
+    ok = bool(_rest("pipeline_products", "PATCH", params={"id": f"eq.{quote(str(pid))}"}, body=body))
+    if not ok:
+        q = _read_json(QUEUE_FILE)
+        arr = list(q.get("products") or [])
+        found = False
+        for it in arr:
+            if str(it.get("id")) == str(pid):
+                if name is not None:
+                    it["pipeline_name"] = name
+                if stock is not None:
+                    it["pipeline_stock"] = stock
+                found = True
+                break
+        if not found:
+            arr.append({"id": pid, **body})
+        q["products"] = arr
+        _write_json(QUEUE_FILE, q)
+    return True
 
 def _results_fetch() -> list:
     return list(_rest("pipeline_results", "GET") or [])
@@ -166,6 +190,17 @@ def _supplier_get_or_create(name: str):
     _supplier_insert(name)
     rows = _rest("suppliers", "GET", params={"name": f"eq.{quote(name)}"}) or []
     return rows[0] if rows else None
+def _supplier_update_by_id(sid: int, payload: dict):
+    return bool(_rest("suppliers", "PATCH", params={"id": f"eq.{sid}"}, body=payload or {}))
+def _supplier_delete_by_id(sid: int):
+    ok = bool(_rest("suppliers", "DELETE", params={"id": f"eq.{sid}"}))
+    if not ok:
+        q = _read_json(QUEUE_FILE)
+        arr = list(q.get("suppliers_delete") or [])
+        arr.append({"id": sid})
+        q["suppliers_delete"] = arr
+        _write_json(QUEUE_FILE, q)
+    return True
 
 # Dashboard & Admin data fetch helpers
 def _pipeline_fetch() -> list:
@@ -173,12 +208,20 @@ def _pipeline_fetch() -> list:
 
 def _pipeline_upsert(stage: dict):
     return bool(_rest("pipeline_stages", "POST", params={"on_conflict": "id"}, body=stage))
+def _pipeline_update(stage_id: str, payload: dict):
+    return bool(_rest("pipeline_stages", "PATCH", params={"id": f"eq.{quote(stage_id)}"}, body=payload))
+def _pipeline_delete(stage_id: str):
+    return bool(_rest("pipeline_stages", "DELETE", params={"id": f"eq.{quote(stage_id)}"}))
 
 def _shipments_fetch() -> list:
     return list(_rest("shipments", "GET") or [])
 
 def _shipment_insert(payload: dict):
     return bool(_rest("shipments", "POST", body=payload))
+def _shipment_update(sid: int, payload: dict):
+    return bool(_rest("shipments", "PATCH", params={"id": f"eq.{sid}"}, body=payload))
+def _shipment_delete(sid: int):
+    return bool(_rest("shipments", "DELETE", params={"id": f"eq.{sid}"}))
 
 def _quality_fetch() -> dict:
     tests = list(_rest("quality_tests", "GET") or [])
@@ -191,6 +234,10 @@ def _quality_fetch() -> dict:
 
 def _quality_upsert(test: dict):
     return bool(_rest("quality_tests", "POST", params={"on_conflict": "id"}, body=test))
+def _quality_update(tid: str, payload: dict):
+    return bool(_rest("quality_tests", "PATCH", params={"id": f"eq.{quote(tid)}"}, body=payload))
+def _quality_delete(tid: str):
+    return bool(_rest("quality_tests", "DELETE", params={"id": f"eq.{quote(tid)}"}))
 
 def _production_fetch() -> dict:
     items = list(_rest("production_stats", "GET") or [])
@@ -198,6 +245,10 @@ def _production_fetch() -> dict:
 
 def _production_insert(row: dict):
     return bool(_rest("production_stats", "POST", body=row))
+def _production_update(pid: int, payload: dict):
+    return bool(_rest("production_stats", "PATCH", params={"id": f"eq.{pid}"}, body=payload))
+def _production_delete(pid: int):
+    return bool(_rest("production_stats", "DELETE", params={"id": f"eq.{pid}"}))
 
 def _risk_fetch() -> dict:
     metrics = list(_rest("risk_metrics", "GET") or [])
@@ -238,6 +289,24 @@ def _order_insert(payload: dict):
         arr.append(payload)
         _write_json(ORDERS_LOCAL, {"orders": arr})
     return True
+def _order_update(oid: int, payload: dict):
+    ok = bool(_rest("orders", "PATCH", params={"id": f"eq.{oid}"}, body=payload))
+    if not ok:
+        data = _read_json(ORDERS_LOCAL)
+        arr = list(data.get("orders") or [])
+        for it in arr:
+            if int(it.get("id") or 0) == int(oid):
+                it.update(payload or {})
+                break
+        _write_json(ORDERS_LOCAL, {"orders": arr})
+    return True
+def _order_delete(oid: int):
+    ok = bool(_rest("orders", "DELETE", params={"id": f"eq.{oid}"}))
+    if not ok:
+        data = _read_json(ORDERS_LOCAL)
+        arr = [it for it in list(data.get("orders") or []) if int(it.get("id") or 0) != int(oid)]
+        _write_json(ORDERS_LOCAL, {"orders": arr})
+    return True
 
 def _admin_confirmations_fetch() -> list:
     return list(_rest("confirmations", "GET") or [])
@@ -248,6 +317,8 @@ def _users_fetch() -> list:
         return rows
     data = _read_json(USERS_LOCAL)
     return data.get("users", [])
+def _user_update_by_id(uid: int, payload: dict):
+    return bool(_rest("users", "PATCH", params={"id": f"eq.{uid}"}, body=payload or {}))
 
 def _hash_pw(pw: str) -> str:
     return hashlib.sha256((pw or "").encode("utf-8")).hexdigest()

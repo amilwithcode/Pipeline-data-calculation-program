@@ -3,7 +3,7 @@ import { SupplierOverview } from '@/src/components/dashboard/SupplierOverview';
 
 const Suppliers = () => {
   return (
-    <DashboardLayout title="Suppliers" subtitle="Vendor management & performance">
+    <DashboardLayout title="Təchizatçılar" subtitle="Satıcı idarəetməsi və performans">
       <SupplierOverview />
     </DashboardLayout>
   );

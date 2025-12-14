@@ -6,23 +6,23 @@ import { Switch } from '@/src/components/ui/switch';
 
 const Settings = () => {
   return (
-    <DashboardLayout title="Settings" subtitle="System configuration & preferences">
+    <DashboardLayout title="Ayarlar" subtitle="Sistem konfiqurasiyası və seçimlər">
       <div className="max-w-2xl">
         <div className="glass-card p-6 space-y-6">
           <div>
-            <h3 className="text-lg font-semibold text-foreground mb-4">Notifications</h3>
+            <h3 className="text-lg font-semibold text-foreground mb-4">Bildirişlər</h3>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <Label>Email Alerts</Label>
-                  <p className="text-sm text-muted-foreground">Receive critical alerts via email</p>
+                  <Label>Email bildirişləri</Label>
+                  <p className="text-sm text-muted-foreground">Kritik bildirişləri email ilə qəbul edin</p>
                 </div>
                 <Switch defaultChecked />
               </div>
               <div className="flex items-center justify-between">
                 <div>
-                  <Label>SMS Notifications</Label>
-                  <p className="text-sm text-muted-foreground">Get SMS for urgent issues</p>
+                  <Label>SMS bildirişləri</Label>
+                  <p className="text-sm text-muted-foreground">Təcili hallar üçün SMS alın</p>
                 </div>
                 <Switch />
               </div>
@@ -30,20 +30,20 @@ const Settings = () => {
           </div>
           
           <div className="border-t border-border pt-6">
-            <h3 className="text-lg font-semibold text-foreground mb-4">Thresholds</h3>
+            <h3 className="text-lg font-semibold text-foreground mb-4">Hədlər</h3>
             <div className="grid gap-4">
               <div>
-                <Label>Low Stock Alert (kg)</Label>
+                <Label>Aşağı stok xəbərdarlığı (kg)</Label>
                 <Input type="number" defaultValue="1000" className="mt-2" />
               </div>
               <div>
-                <Label>Quality Pass Rate Target (%)</Label>
+                <Label>Keyfiyyət keçmə faizi hədəfi (%)</Label>
                 <Input type="number" defaultValue="95" className="mt-2" />
               </div>
             </div>
           </div>
 
-          <Button className="w-full">Save Settings</Button>
+          <Button className="w-full">Ayarları yadda saxla</Button>
         </div>
       </div>
     </DashboardLayout>

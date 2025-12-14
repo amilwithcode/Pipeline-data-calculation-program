@@ -1,38 +1,37 @@
-import { useState } from 'react';
-import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
-import { 
-  LayoutDashboard, 
-  Factory, 
-  Users, 
-  ClipboardCheck, 
-  Truck, 
-  AlertTriangle, 
-  Settings, 
-  ChevronLeft,
-  ChevronRight,
-  Gauge,
-  Package
-} from 'lucide-react';
-import { cn } from '@/src/lib/utils';
+ "use client";
+ import { useState } from 'react';
+ import Link from 'next/link';
+ import { 
+   LayoutDashboard, 
+   Factory, 
+   Users, 
+   ClipboardCheck, 
+   Truck, 
+   AlertTriangle, 
+   Settings, 
+   ChevronLeft,
+   ChevronRight,
+   Gauge,
+   Package
+ } from 'lucide-react';
+ import { cn } from '@/src/lib/utils';
 
 const navigationItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', view: 'dashboard' },
-  { icon: Factory, label: 'Production', view: 'production' },
-  { icon: Package, label: 'Raw Materials', view: 'materials' },
-  { icon: ClipboardCheck, label: 'Quality Control', view: 'quality' },
-  { icon: Truck, label: 'Logistics', view: 'logistics' },
-  { icon: Users, label: 'Suppliers', view: 'suppliers' },
-  { icon: AlertTriangle, label: 'Alerts', view: 'alerts' },
-  { icon: Gauge, label: 'Performance', view: 'performance' },
-  { icon: Settings, label: 'Settings', view: 'settings' },
+  { icon: LayoutDashboard, label: 'Panel', view: 'dashboard' },
+  { icon: Factory, label: 'İstehsal', view: 'production' },
+  { icon: Package, label: 'Xammal', view: 'materials' },
+  { icon: ClipboardCheck, label: 'Keyfiyyət Nəzarəti', view: 'quality' },
+  { icon: Truck, label: 'Logistika', view: 'logistics' },
+  { icon: Users, label: 'Təchizatçılar', view: 'suppliers' },
+  { icon: AlertTriangle, label: 'Bildirişlər', view: 'alerts' },
+  { icon: Gauge, label: 'Performans', view: 'performance' },
+  { icon: Settings, label: 'Ayarlar', view: 'settings' },
   { icon: Users, label: 'Admin', view: 'admin' },
 ];
 
 export const Sidebar = () => {
   const [collapsed, setCollapsed] = useState(false);
-  const params = useSearchParams();
-  const currentView = (params && params.get('view')) || 'dashboard';
+  const currentView = (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('view') : null) || 'dashboard';
 
   return (
     <aside 

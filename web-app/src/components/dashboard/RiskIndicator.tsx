@@ -6,8 +6,8 @@ interface RiskMetric {
   id: string;
   name: string;
   score: number;
-  trend: 'improving' | 'worsening' | 'stable';
-  factors: string[];
+  trend?: 'improving' | 'worsening' | 'stable';
+  factors?: string[];
 }
 
 
@@ -124,7 +124,7 @@ export const RiskIndicator = () => {
                 />
               </div>
               <div className="flex gap-2 mt-2">
-                {metric.factors.map((factor, idx) => (
+                {(metric.factors ?? []).map((factor, idx) => (
                   <span key={idx} className="text-xs text-muted-foreground bg-secondary/50 px-2 py-0.5 rounded">
                     {factor}
                   </span>

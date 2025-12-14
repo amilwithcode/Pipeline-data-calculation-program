@@ -4,6 +4,7 @@ from http.server import HTTPServer, SimpleHTTPRequestHandler, ThreadingHTTPServe
 from urllib.parse import urlparse, parse_qs
 from io import BytesIO
 import app_backend as app
+import time
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 WEB_DIR = os.path.join(ROOT, "web")
@@ -75,6 +76,61 @@ class Handler(SimpleHTTPRequestHandler):
                 "products": prod_list
             }
             return self._json(payload)
+        if self.path.startswith("/api/events"):
+            origin = self.headers.get("Origin") or ALLOWED_ORIGIN
+            allow = ALLOWED_ORIGIN if origin == ALLOWED_ORIGIN else ALLOWED_ORIGIN
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Connection", "keep-alive")
+            self.send_header("Access-Control-Allow-Origin", allow)
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.end_headers()
+            for _ in range(120):
+                try:
+                    supabase_ok = bool(app.sb)
+                    products = app._products_fetch()
+                    prod_list = []
+                    low_stock = 0
+                    for k,v in products.items():
+                        stock = int(v.get("pipeline_stock", 0) or 0)
+                        prod_list.append({"id": k, "name": v.get("pipeline_name"), "stock": stock})
+                        if stock < 5:
+                            low_stock += 1
+                    queue = app._queue_load()
+                    results = app._results_fetch()
+                    suppliers = app._suppliers_fetch()
+                    alerts = []
+                    if not supabase_ok:
+                        alerts.append({"level": "critical", "message": "Supabase konfiqurasiya olunmayıb"})
+                    if low_stock > 0:
+                        alerts.append({"level": "warning", "message": f"Aşağı stok: {low_stock} məhsul"})
+                    if len(queue.get("requested_pipes", [])) > 0:
+                        alerts.append({"level": "info", "message": "Queue-də göndərilmə gözləyən nəticələr var"})
+                    risks = {"supply_chain": 28, "quality": 15, "delivery": 42, "production": 22}
+                    payload = {
+                        "supabase": supabase_ok,
+                        "alerts": alerts,
+                        "risks": risks,
+                        "inventory": {"total_products": len(prod_list), "low_stock": low_stock},
+                        "suppliers_count": len(suppliers),
+                        "results_count": len(results),
+                        "products": prod_list
+                    }
+                    msg = f"data: {json.dumps(payload)}\n\n"
+                    self.wfile.write(msg.encode("utf-8"))
+                    self.wfile.flush()
+                    time.sleep(5)
+                except BrokenPipeError:
+                    break
+                except Exception:
+                    try:
+                        self.wfile.write(b": ping\n\n")
+                        self.wfile.flush()
+                    except Exception:
+                        break
+            return
         if self.path.startswith("/api/products"):
             items = app._products_fetch()
             data = []
@@ -238,9 +294,82 @@ class Handler(SimpleHTTPRequestHandler):
             app._product_delete(pid)
             self._json({"ok": True})
             return
+        if self.path.startswith("/api/orders/"):
+            oid = int(self.path.split("/")[-1])
+            app._order_delete(oid)
+            self._json({"ok": True})
+            return
+        if self.path.startswith("/api/shipments/"):
+            sid = int(self.path.split("/")[-1])
+            app._shipment_delete(sid)
+            self._json({"ok": True})
+            return
+        if self.path.startswith("/api/pipeline/"):
+            stage_id = self.path.split("/")[-1]
+            app._pipeline_delete(stage_id)
+            self._json({"ok": True})
+            return
+        if self.path.startswith("/api/quality/"):
+            tid = self.path.split("/")[-1]
+            app._quality_delete(tid)
+            self._json({"ok": True})
+            return
+        if self.path.startswith("/api/production/"):
+            pid = int(self.path.split("/")[-1])
+            app._production_delete(pid)
+            self._json({"ok": True})
+            return
         if self.path.startswith("/api/suppliers/"):
             sid = int(self.path.split("/")[-1])
             app._supplier_delete_by_id(sid)
+            self._json({"ok": True})
+            return
+        self._json({"ok": False})
+    def do_PUT(self):
+        size = int(self.headers.get("Content-Length", 0) or 0)
+        buf = self.rfile.read(size) if size > 0 else b"{}"
+        try:
+            payload = json.loads(buf.decode("utf-8"))
+        except Exception:
+            payload = {}
+        if self.path.startswith("/api/users/"):
+            uid = int(self.path.split("/")[-1])
+            ok = app._user_update_by_id(uid, payload)
+            self._json({"ok": bool(ok)})
+            return
+        if self.path.startswith("/api/suppliers/"):
+            sid = int(self.path.split("/")[-1])
+            ok = app._supplier_update_by_id(sid, payload)
+            self._json({"ok": bool(ok)})
+            return
+        if self.path.startswith("/api/products/"):
+            pid = self.path.split("/")[-1]
+            app._product_update(pid, payload.get("pipeline_name") or payload.get("name"), int(payload.get("pipeline_stock", payload.get("stock", 0)) or 0))
+            self._json({"ok": True})
+            return
+        if self.path.startswith("/api/orders/"):
+            oid = int(self.path.split("/")[-1])
+            app._order_update(oid, payload)
+            self._json({"ok": True})
+            return
+        if self.path.startswith("/api/shipments/"):
+            sid = int(self.path.split("/")[-1])
+            app._shipment_update(sid, payload)
+            self._json({"ok": True})
+            return
+        if self.path.startswith("/api/pipeline/"):
+            stage_id = self.path.split("/")[-1]
+            app._pipeline_update(stage_id, payload)
+            self._json({"ok": True})
+            return
+        if self.path.startswith("/api/quality/"):
+            tid = self.path.split("/")[-1]
+            app._quality_update(tid, payload)
+            self._json({"ok": True})
+            return
+        if self.path.startswith("/api/production/"):
+            pid = int(self.path.split("/")[-1])
+            app._production_update(pid, payload)
             self._json({"ok": True})
             return
         self._json({"ok": False})

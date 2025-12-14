@@ -27,7 +27,21 @@ export const SupplierOverview = () => {
     let mounted = true;
     fetch('/api/suppliers')
       .then(r => r.json())
-      .then(d => { if (!mounted) return; setSuppliers(Array.isArray(d.suppliers) ? d.suppliers : []); })
+      .then(d => {
+        if (!mounted) return;
+        const arr = Array.isArray(d) ? d : (Array.isArray(d?.suppliers) ? d.suppliers : []);
+        const list: Supplier[] = arr.map((s: any) => ({
+          id: String(s.id ?? Math.random()),
+          name: String(s.name ?? s.contact ?? s.company ?? '—'),
+          rating: Number(s.rating ?? 0),
+          deliveryScore: Number(s.delivery_score ?? s.deliveryScore ?? 0),
+          qualityScore: Number(s.quality_score ?? s.qualityScore ?? 0),
+          activeOrders: Number(s.active_orders ?? s.activeOrders ?? 0),
+          trend: (s.trend === 'up' || s.trend === 'down' || s.trend === 'stable') ? s.trend : 'stable',
+          status: (s.status === 'active' || s.status === 'pending' || s.status === 'issue') ? s.status : 'active',
+        }));
+        setSuppliers(list);
+      })
       .catch(() => { if (!mounted) return; setSuppliers([]); });
     return () => { mounted = false; };
   }, []);
@@ -35,8 +49,8 @@ export const SupplierOverview = () => {
     <div className="glass-card p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-lg font-semibold text-foreground">Supplier Overview</h2>
-          <p className="text-sm text-muted-foreground">Performance & order status</p>
+          <h2 className="text-lg font-semibold text-foreground">Təchizatçı icmalı</h2>
+          <p className="text-sm text-muted-foreground">Performans və sifariş statusu</p>
         </div>
         <span className="text-sm text-muted-foreground">{suppliers.length} Active Suppliers</span>
       </div>

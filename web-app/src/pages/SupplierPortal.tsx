@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+ "use client";
+ import { useState, useEffect } from 'react';
+ import { useRouter } from 'next/navigation';
 import { 
   Package, 
   Truck, 
@@ -58,22 +59,22 @@ const statusConfig = {
 
 export default function SupplierPortal() {
   const [user, setUser] = useState<{ name: string; email: string } | null>(null);
-  const navigate = useNavigate();
+  const router = useRouter();
   const { toast } = useToast();
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
     if (!storedUser) {
-      navigate('/auth');
+      router.push('/auth');
       return;
     }
     setUser(JSON.parse(storedUser));
-  }, [navigate]);
+  }, [router]);
 
   const handleLogout = () => {
     localStorage.removeItem('user');
     toast({ title: 'Logged out', description: 'See you next time!' });
-    navigate('/auth');
+    router.push('/auth');
   };
 
   const activeOrders = mockOrders.filter(o => o.status !== 'delivered').length;
@@ -94,7 +95,7 @@ export default function SupplierPortal() {
               <Package className="w-5 h-5 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="font-bold text-foreground text-lg">Supplier Portal</h1>
+              <h1 className="font-bold text-foreground text-lg">Təchizatçı Portalı</h1>
               <p className="text-xs text-muted-foreground">PipeFlow Industries</p>
             </div>
           </div>
@@ -115,12 +116,12 @@ export default function SupplierPortal() {
         {/* Welcome Section */}
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-foreground">Welcome back, {user?.name?.split(' ')[0] || 'Supplier'}</h2>
-            <p className="text-muted-foreground">Here's an overview of your orders and performance</p>
+            <h2 className="text-2xl font-bold text-foreground">Yenidən xoş gəldiniz, {user?.name?.split(' ')[0] || 'Təchizatçı'}</h2>
+            <p className="text-muted-foreground">Sifariş və performans icmalı</p>
           </div>
           <Button className="gap-2">
             <Plus className="w-4 h-4" />
-            New Quote Request
+            Yeni qiymət sorğusu
           </Button>
         </div>
 
@@ -144,7 +145,7 @@ export default function SupplierPortal() {
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Urgent (≤3 days)</p>
+                  <p className="text-sm text-muted-foreground">Təcili (≤3 gün)</p>
                   <p className="text-3xl font-bold text-warning">{urgentOrders}</p>
                 </div>
                 <div className="w-12 h-12 rounded-xl bg-warning/10 flex items-center justify-center">
@@ -158,7 +159,7 @@ export default function SupplierPortal() {
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">This Month</p>
+                  <p className="text-sm text-muted-foreground">Bu ay</p>
                   <p className="text-3xl font-bold text-foreground">$47.2K</p>
                 </div>
                 <div className="w-12 h-12 rounded-xl bg-success/10 flex items-center justify-center">
@@ -172,7 +173,7 @@ export default function SupplierPortal() {
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Next Delivery</p>
+                  <p className="text-sm text-muted-foreground">Növbəti çatdırılma</p>
                   <p className="text-3xl font-bold text-foreground">Dec 12</p>
                 </div>
                 <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center">
@@ -187,8 +188,8 @@ export default function SupplierPortal() {
           {/* Orders List */}
           <Card className="glass-card lg:col-span-2">
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-lg font-semibold">Current Orders</CardTitle>
-              <Button variant="outline" size="sm">View All</Button>
+              <CardTitle className="text-lg font-semibold">Cari sifarişlər</CardTitle>
+              <Button variant="outline" size="sm">Hamısına bax</Button>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -213,7 +214,7 @@ export default function SupplierPortal() {
                       </div>
                       <div className="flex items-center gap-4">
                         <div className="text-right">
-                          <p className="text-sm text-muted-foreground">Due Date</p>
+                          <p className="text-sm text-muted-foreground">Son tarix</p>
                           <p className="font-medium text-foreground">{new Date(order.dueDate).toLocaleDateString()}</p>
                         </div>
                         <Badge variant="outline" className={config.color}>
@@ -231,7 +232,7 @@ export default function SupplierPortal() {
           {/* Performance Metrics */}
           <Card className="glass-card">
             <CardHeader>
-              <CardTitle className="text-lg font-semibold">Your Performance</CardTitle>
+              <CardTitle className="text-lg font-semibold">Performansınız</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
               {mockMetrics.map((metric) => {
